@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -ueo pipefail
+
+gitleaks git --verbose

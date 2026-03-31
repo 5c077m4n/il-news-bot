@@ -1,0 +1,25 @@
+services:
+  news-mcp:
+    build: https://github.com/5c077m4n/il-news-mcp.git
+    restart: unless-stopped
+    ports:
+      - 8888:8888
+    entrypoint: ["/main", "-host=il-news-mcp"]
+
+  agent:
+    image: ghcr.io/nullclaw/nullclaw:latest
+    command: ["gateway"]
+    env_file:
+      - path: .env
+    volumes:
+      - ./nullclaw-data:/nullclaw-data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+    entrypoint: ["sh", "/nullclaw-data/init.sh"]

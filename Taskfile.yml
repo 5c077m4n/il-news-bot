@@ -1,0 +1,13 @@
+version: "3"
+
+tasks:
+  compose:
+    cmds:
+      - docker compose up -d --build --remove-orphans
+  decompose:
+    cmds:
+      - docker compose down --rmi local --remove-orphans --volumes
+  recompose:
+    cmds:
+      - task: decompose
+      - task: compose

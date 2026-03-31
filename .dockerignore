@@ -1,0 +1,5 @@
+.git/
+.githook/
+.env
+Taskfile.yml
+main.tf
