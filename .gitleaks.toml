@@ -1,0 +1,5 @@
+[[rules]]
+id = "telegram-bot-token"
+description = "Telegram Bot API Token"
+regex = '''[0-9]{5,12}:[a-zA-Z0-9_-]{30,100}'''
+tags = ["telegram", "token"]
