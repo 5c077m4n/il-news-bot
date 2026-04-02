@@ -1,25 +1,27 @@
 services:
-  news-mcp:
+  il-news-mcp:
     build: https://github.com/5c077m4n/il-news-mcp.git
     restart: unless-stopped
     ports:
       - 8888:8888
     entrypoint: ["/main", "-host=il-news-mcp"]
 
-  agent:
-    image: ghcr.io/nullclaw/nullclaw:latest
-    command: ["gateway"]
+  moltis:
+    image: ghcr.io/moltis-org/moltis:latest
     env_file:
-      - path: .env
+      - .env
     volumes:
-      - ./nullclaw-data:/nullclaw-data
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 128M
-        reservations:
-          cpus: "0.25"
-          memory: 64M
-    entrypoint: ["sh", "/nullclaw-data/init.sh"]
+      - ./moltis/config/moltis.toml:/home/moltis/.config/moltis/moltis.toml:ro
+      - moltis_config:/home/moltis/.config/moltis
+      - moltis_data:/home/moltis/.moltis
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 13131:13131
+      - 13132:13132
+      - 1455:1455
+    depends_on:
+      - il-news-mcp
+
+volumes:
+  moltis_config: {}
+  moltis_data: {}

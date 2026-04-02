@@ -1,0 +1,229 @@
+[providers]
+offered = ["openrouter"]
+
+[server]
+bind = "127.0.0.1"
+port = 36973
+http_request_logs = false
+ws_request_logs = false
+log_buffer_size = 1000
+db_pool_max_connections = 5
+
+[providers.openrouter]
+enabled = true
+models = ["google/gemini-3.1-flash-lite-preview"]
+
+[mcp]
+request_timeout_secs = 30
+
+[mcp.servers.news]
+transport = "sse"
+url = "http://il-news-mcp:8888"
+command = ""
+args = []
+enabled = true
+
+[mcp.servers.news.env]
+
+[mcp.servers.news.headers]
+
+[channels]
+offered = ["telegram"]
+
+[chat]
+message_queue_mode = "followup"
+priority_models = []
+
+[channels.telegram."${TELEGRAM_BOT_ID}"]
+token = "${TELEGRAM_API_KEY}"
+dm_policy = "open"
+
+[tools.exec.sandbox]
+mode = "all"
+scope = "session"
+workspace_mount = "ro"
+home_persistence = "session"
+backend = "auto"
+no_network = true
+packages = ["curl", "git", "jq", "ls", "ripgrep", "fd"]
+network = ""
+trusted_domains = []
+
+[tools.exec.sandbox.resource_limits]
+
+[tools.policy]
+allow = []
+deny = []
+
+[tools.web.search]
+enabled = true
+provider = "brave"
+max_results = 5
+timeout_seconds = 30
+cache_ttl_minutes = 15
+duckduckgo_fallback = false
+
+[tools.web.search.perplexity]
+
+[tools.web.fetch]
+enabled = true
+max_chars = 50000
+timeout_seconds = 30
+cache_ttl_minutes = 15
+max_redirects = 3
+readability = true
+ssrf_allowlist = []
+
+[tools.maps]
+provider = "google_maps"
+
+[tools.browser]
+enabled = true
+headless = true
+viewport_width = 2560
+viewport_height = 1440
+device_scale_factor = 2.0
+max_instances = 0
+memory_limit_percent = 90
+idle_timeout_secs = 300
+navigation_timeout_ms = 30000
+chrome_args = []
+sandbox_image = "browserless/chrome"
+allowed_domains = []
+low_memory_threshold_mb = 2048
+persist_profile = true
+container_host = "127.0.0.1"
+
+[agents.presets]
+
+[skills]
+enabled = false
+search_paths = []
+auto_load = []
+enable_agent_sidecar_files = false
+
+[channels.whatsapp]
+
+[channels.msteams]
+
+[channels.discord]
+
+[channels.slack]
+
+[tools]
+agent_timeout_secs = 600
+agent_max_iterations = 25
+max_tool_result_bytes = 50000
+registry_mode = "full"
+
+[tools.exec]
+default_timeout_secs = 30
+max_output_bytes = 204800
+approval_mode = "on-miss"
+security_level = "allowlist"
+allowlist = []
+host = "local"
+
+[tls]
+enabled = true
+auto_generate = true
+
+[auth]
+disabled = false
+
+[graphql]
+enabled = true
+
+[metrics]
+enabled = true
+prometheus_endpoint = true
+history_points = 360
+
+[metrics.labels]
+
+[identity]
+
+[user]
+
+[memory]
+disable_rag = false
+llm_reranking = false
+session_export = false
+
+[memory.qmd.collections]
+
+[tailscale]
+mode = "off"
+reset_on_exit = true
+
+[failover]
+enabled = true
+fallback_models = []
+
+[heartbeat]
+enabled = true
+every = "30m"
+ack_max_chars = 300
+deliver = false
+sandbox_enabled = true
+
+[heartbeat.active_hours]
+start = "08:00"
+end = "24:00"
+timezone = "local"
+
+[voice.tts]
+enabled = true
+provider = ""
+providers = []
+
+[voice.tts.elevenlabs]
+
+[voice.tts.openai]
+
+[voice.tts.google]
+
+[voice.tts.piper]
+
+[voice.tts.coqui]
+endpoint = "http://localhost:5002"
+
+[voice.stt]
+enabled = true
+providers = []
+
+[voice.stt.whisper]
+
+[voice.stt.groq]
+
+[voice.stt.deepgram]
+smart_format = false
+
+[voice.stt.google]
+
+[voice.stt.mistral]
+
+[voice.stt.elevenlabs]
+
+[voice.stt.voxtral_local]
+endpoint = "http://localhost:8000"
+
+[voice.stt.whisper_cli]
+
+[voice.stt.sherpa_onnx]
+
+[cron]
+rate_limit_max = 10
+rate_limit_window_secs = 60
+
+[caldav]
+enabled = false
+
+[caldav.accounts]
+
+[webhooks.rate_limit]
+enabled = true
+cleanup_interval_secs = 300
+
+[env]
+OPENROUTER_API_KEY = "${OPENROUTER_API_KEY}"
