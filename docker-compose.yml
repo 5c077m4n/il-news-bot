@@ -6,6 +6,19 @@ services:
       - 8888:8888
     entrypoint: ["/main", "-host=il-news-mcp"]
 
+  mcp-inspect:
+    image: ghcr.io/modelcontextprotocol/inspector:latest
+    environment:
+      HOST: 0.0.0.0
+      MCP_AUTO_OPEN_ENABLED: false
+    ports:
+      - 6274:6274
+      - 6277:6277
+    depends_on:
+      - il-news-mcp
+    profiles:
+      - inspect
+
   moltis:
     image: ghcr.io/moltis-org/moltis:latest
     env_file:
