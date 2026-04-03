@@ -1,6 +1,8 @@
 services:
   il-news-mcp:
     build: https://github.com/5c077m4n/il-news-mcp.git
+    env_file:
+      - .env
     restart: unless-stopped
     ports:
       - 8888:8888
