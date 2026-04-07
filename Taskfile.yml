@@ -14,3 +14,6 @@ tasks:
   logs:
     cmds:
       - docker logs --follow il-news-bot-{{default "moltis" .SERVICE}}-1
+  exec:
+    cmds:
+      - docker exec -it il-news-bot-{{default "moltis" .SERVICE}}-1 bash
