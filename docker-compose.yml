@@ -13,9 +13,10 @@ services:
     env_file:
       - .env
     volumes:
-      - ./moltis/config/moltis.toml:/home/moltis/.config/moltis/moltis.toml:ro
       - moltis_config:/home/moltis/.config/moltis
+      - ./moltis/config/moltis.toml:/home/moltis/.config/moltis/moltis.toml:ro
       - moltis_data:/home/moltis/.moltis
+      - ./moltis/home/SOUL.md:/home/moltis/.moltis/SOUL.md:ro
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - 13131:13131
