@@ -9,6 +9,9 @@ ws_request_logs = false
 log_buffer_size = 1000
 db_pool_max_connections = 5
 
+[ngrok]
+enabled = false
+
 [providers.openrouter]
 enabled = true
 models = ["google/gemini-3.1-flash-lite-preview"]
@@ -34,10 +37,6 @@ offered = ["telegram"]
 message_queue_mode = "followup"
 priority_models = []
 
-[channels.telegram."${TELEGRAM_BOT_ID}"]
-token = "${TELEGRAM_API_KEY}"
-dm_policy = "open"
-
 [tools.exec.sandbox]
 mode = "all"
 scope = "session"
@@ -62,6 +61,14 @@ max_results = 5
 timeout_seconds = 30
 cache_ttl_minutes = 15
 duckduckgo_fallback = false
+
+[tools.web.firecrawl]
+enabled = false
+base_url = "https://api.firecrawl.dev"
+only_main_content = true
+timeout_seconds = 30
+cache_ttl_minutes = 15
+web_fetch_fallback = true
 
 [tools.web.search.perplexity]
 
@@ -96,19 +103,37 @@ container_host = "127.0.0.1"
 
 [agents.presets]
 
+[agents.presets.orchestrator]
+identity.name = "orchestrator"
+model = "google/gemini-3.1-flash-lite-preview"
+tools.allow = [
+  "spawn_agent",
+  "sessions_list",
+  "sessions_history",
+  "sessions_search",
+  "sessions_send",
+  "task_list",
+]
+sessions.can_send = true
+delegate_only = true
+
 [agents.presets.left-wing]
 identity.name = "Lefty"
+identity.theme = "focused, concise and efficient"
 system_prompt_suffix = "Act as a progressive news anchor who is principled, calm, and meticulous. Your perspective leans left—prioritizing social justice, environmental protection, and economic equality—but your primary allegiance is to the truth. Every headline you deliver must be accompanied by a specific, credible source. Avoid hyperbole; let the data and the ethics of the story drive the narrative. Your tone is professional, empathetic, and intellectually rigorous. **Do not** send a headline without at least one link to the original source (the more souces the better)"
 model = "google/gemini-3.1-flash-lite-preview"
-tools.allow = ["mcp__news__news", "web_fetch", "web_search"]
+tools.allow = ["read_file", "mcp__news__news", "web_fetch", "web_search"]
 tools.deny = ["exec", "write_file"]
+delegate_only = false
 
 [agents.presets.right-wing]
 identity.name = "Righty"
+identity.theme = "focused, concise and efficient"
 system_prompt_suffix = "Act as a principled, center-right news anchor. Your tone is professional, traditional, and analytical. You prioritize individual liberty, fiscal responsibility, and local governance. Crucially, every headline must be followed by a specific, credible source or data point. Avoid hyperbole; focus on interpreting current events through a conservative lens while maintaining strict journalistic integrity and factual accuracy. **Do not** send a headline without at least one link to the original source (the more souces the better)"
 model = "google/gemini-3.1-flash-lite-preview"
-tools.allow = ["mcp__news__news", "web_fetch", "web_search"]
+tools.allow = ["read_file", "mcp__news__news", "web_fetch", "web_search"]
 tools.deny = ["exec", "write_file"]
+delegate_only = false
 
 [skills]
 enabled = false
@@ -137,6 +162,12 @@ approval_mode = "on-miss"
 security_level = "allowlist"
 allowlist = []
 host = "local"
+
+[channels.telegram."${TELEGRAM_BOT_ID}"]
+dm_policy = "open"
+token = "${TELEGRAM_API_KEY}"
+model = "google/gemini-3.1-flash-lite-preview"
+model_provider = "openrouter"
 
 [tls]
 enabled = true
@@ -229,6 +260,8 @@ endpoint = "http://localhost:8000"
 [cron]
 rate_limit_max = 10
 rate_limit_window_secs = 60
+session_retention_days = 7
+auto_prune_cron_containers = true
 
 [caldav]
 enabled = false
