@@ -2,4 +2,7 @@
 .githook/
 .env
 Taskfile.yml
-main.tf
+*.tf
+*.tf.*
+*.tfstate
+*.tfstate.*

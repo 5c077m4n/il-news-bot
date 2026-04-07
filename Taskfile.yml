@@ -1,5 +1,8 @@
 version: "3"
 
+dotenv:
+  - .env
+
 tasks:
   compose:
     cmds:
@@ -17,3 +20,20 @@ tasks:
   exec:
     cmds:
       - docker exec -it il-news-bot-{{default "moltis" .SERVICE}}-1 bash
+  ssh:
+    vars:
+      IP:
+        sh: doctl compute droplet list --format PublicIPv4 | tail -n 1
+      SSH_KEY: ~/.ssh/keys/do_ed25519
+    cmds:
+      - ssh -i {{.SSH_KEY}} -i {{.SSH_KEY}}.pub "root@{{.IP}}"
+  deploy:
+    env:
+      TF_VAR_DO_TOKEN: "{{.DO_TOKEN}}"
+      TF_VAR_OPENROUTER_API_KEY: "{{.OPENROUTER_API_KEY}}"
+      TF_VAR_TELEGRAM_API_KEY: "{{.TELEGRAM_API_KEY}}"
+      TF_VAR_TELEGRAM_BOT_ID: "{{.TELEGRAM_BOT_ID}}"
+      TF_VAR_MOTIS_PROVIDER: "{{.MOTIS_PROVIDER}}"
+      TF_VAR_MOLTIS_API_KEY: "{{.MOLTIS_API_KEY}}"
+    cmds:
+      - tofu apply
