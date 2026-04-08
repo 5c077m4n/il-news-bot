@@ -5,28 +5,34 @@ dotenv:
 
 tasks:
   compose:
-    cmds:
-      - docker compose --profile "{{.PROFILE}}" up -d --build --remove-orphans
+    cmd: docker compose --profile "{{.PROFILE}}" up -d --build --remove-orphans
   decompose:
-    cmds:
-      - docker compose down --rmi local --remove-orphans --volumes
+    cmd: docker compose down --rmi local --remove-orphans --volumes
   recompose:
     cmds:
       - task: decompose
       - task: compose
   logs:
-    cmds:
-      - docker logs --follow il-news-bot-{{default "moltis" .SERVICE}}-1
+    cmd: docker logs --follow il-news-bot-{{default "moltis" .SERVICE}}-1
   exec:
-    cmds:
-      - docker exec -it il-news-bot-{{default "moltis" .SERVICE}}-1 bash
+    cmd: docker exec -it il-news-bot-{{default "moltis" .SERVICE}}-1 bash
+
   ssh:
     vars:
       IP:
         sh: doctl compute droplet list --format PublicIPv4 | tail -n 1
       SSH_KEY: ~/.ssh/keys/do_ed25519
+    cmd: ssh -i {{.SSH_KEY}} -i {{.SSH_KEY}}.pub "root@{{.IP}}" "{{.COMMAND}}"
+  ssh:update:
     cmds:
-      - ssh -i {{.SSH_KEY}} -i {{.SSH_KEY}}.pub "root@{{.IP}}"
+      - task: ssh
+        vars:
+          COMMAND: cd /app && git pull --rebase && docker compose up -d --build --remove-orphans
+  ssh:logs:
+    cmds:
+      - task: ssh
+        vars:
+          COMMAND: cd /app && docker logs --follow app-moltis-1
   deploy:
     env:
       TF_VAR_DO_TOKEN: "{{.DO_TOKEN}}"
@@ -35,5 +41,4 @@ tasks:
       TF_VAR_TELEGRAM_BOT_ID: "{{.TELEGRAM_BOT_ID}}"
       TF_VAR_MOTIS_PROVIDER: "{{.MOTIS_PROVIDER}}"
       TF_VAR_MOLTIS_API_KEY: "{{.MOLTIS_API_KEY}}"
-    cmds:
-      - tofu apply
+    cmd: tofu apply
