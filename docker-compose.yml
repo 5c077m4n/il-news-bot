@@ -8,6 +8,27 @@ services:
       - 8888:8888
     entrypoint: ["/main", "-host=il-news-mcp"]
 
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=5
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=10m
+    restart: unless-stopped
+    ports:
+      - 11434:11434
+    volumes:
+      - ollama:/root/.ollama
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        ollama serve &
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        ollama pull qwen3.5:2b
+        wait
+
   moltis:
     image: ghcr.io/moltis-org/moltis:latest
     env_file:
@@ -24,6 +45,7 @@ services:
       - 1455:1455
     depends_on:
       - il-news-mcp
+      - ollama
     healthcheck:
       test: curl -Ssf http://localhost:13131/health || exit 1
       interval: 30s
@@ -34,3 +56,4 @@ services:
 volumes:
   moltis_config: {}
   moltis_data: {}
+  ollama: {}
