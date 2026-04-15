@@ -7,7 +7,7 @@ tasks:
   compose:
     cmd: docker compose --profile "{{.PROFILE}}" up -d --build --remove-orphans
   decompose:
-    cmd: docker compose down --rmi local --remove-orphans --volumes
+    cmd: docker compose down --rmi all --volumes --remove-orphans
   recompose:
     cmds:
       - task: decompose
