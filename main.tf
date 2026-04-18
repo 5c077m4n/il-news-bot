@@ -11,19 +11,15 @@ variable "OPENROUTER_API_KEY" {
   type      = string
   sensitive = true
 }
-variable "TELEGRAM_API_KEY" {
+variable "TELEGRAM_BOT_TOKEN" {
   type      = string
   sensitive = true
 }
-variable "TELEGRAM_BOT_ID" {
+variable "TELEGRAM_API_ID" {
   type      = string
   sensitive = true
 }
-variable "MOTIS_PROVIDER" {
-  type    = string
-  default = "openrouter"
-}
-variable "MOLTIS_API_KEY" {
+variable "TELEGRAM_API_HASH" {
   type      = string
   sensitive = true
 }
@@ -46,11 +42,12 @@ resource "digitalocean_ssh_key" "default" {
   public_key = file(var.ssh_public_key_path)
 }
 resource "digitalocean_droplet" "news_agents" {
-  image    = "ubuntu-24-04-x64"
-  name     = "il-news-bot-droplet"
-  region   = "fra1"
-  size     = "s-2vcpu-2gb"
-  ssh_keys = [digitalocean_ssh_key.default.fingerprint]
+  image             = "ubuntu-24-04-x64"
+  name              = "il-news-bot-droplet"
+  region            = "fra1"
+  size              = "s-2vcpu-2gb"
+  ssh_keys          = [digitalocean_ssh_key.default.fingerprint]
+  graceful_shutdown = true
 
   user_data = <<-EOF
     #!/bin/bash
@@ -74,11 +71,12 @@ resource "digitalocean_droplet" "news_agents" {
 
     cat <<-ENV_FILE >.env
     ENV=prod
+
+    DO_TOKEN=${var.DO_TOKEN}
     OPENROUTER_API_KEY=${var.OPENROUTER_API_KEY}
-    TELEGRAM_API_KEY=${var.TELEGRAM_API_KEY}
-    TELEGRAM_BOT_ID=${var.TELEGRAM_BOT_ID}
-    MOTIS_PROVIDER=${var.MOTIS_PROVIDER}
-    MOLTIS_API_KEY=${var.MOLTIS_API_KEY}
+    TELEGRAM_BOT_TOKEN=${var.TELEGRAM_BOT_TOKEN}
+    TELEGRAM_API_ID=${var.TELEGRAM_API_ID}
+    TELEGRAM_API_HASH=${var.TELEGRAM_API_HASH}
     ENV_FILE
 
     docker compose up -d --build --remove-orphans

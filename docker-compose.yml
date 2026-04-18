@@ -1,36 +1,8 @@
 services:
-  il-news-mcp:
-    build: https://github.com/5c077m4n/il-news-mcp.git
+  il-news-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
       - .env
     restart: unless-stopped
-    ports:
-      - 8888:8888
-    entrypoint: ["/main", "-host=il-news-mcp"]
-
-  moltis:
-    image: ghcr.io/moltis-org/moltis:latest
-    env_file:
-      - .env
-    volumes:
-      - moltis_config:/home/moltis/.config/moltis
-      - ./moltis/config/moltis.toml:/home/moltis/.config/moltis/moltis.toml:ro
-      - moltis_data:/home/moltis/.moltis
-      - ./moltis/home/SOUL.md:/home/moltis/.moltis/SOUL.md:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - 13131:13131
-      - 13132:13132
-      - 1455:1455
-    depends_on:
-      - il-news-mcp
-    healthcheck:
-      test: curl -Ssf http://localhost:13131/health || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-volumes:
-  moltis_config: {}
-  moltis_data: {}

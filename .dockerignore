@@ -1,8 +1,7 @@
 .git/
-.githook/
+.githooks/
+.venv/
+.ruff_cache/
+
 .env
-Taskfile.yml
-*.tf
-*.tf.*
-*.tfstate
-*.tfstate.*
+.env.*
