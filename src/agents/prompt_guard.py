@@ -1,8 +1,8 @@
 import logging
 
 from llm_guard import scan_output, scan_prompt
-from llm_guard.input_scanners import PromptInjection, TokenLimit, Toxicity
-from llm_guard.output_scanners import NoRefusal, Relevance
+from llm_guard.input_scanners import BanCode, InvisibleText, PromptInjection, TokenLimit
+from llm_guard.output_scanners import MaliciousURLs, NoRefusal, Relevance
 
 
 class DirtyInputException(Exception):
@@ -23,8 +23,8 @@ class DirtyOutputException(Exception):
 
 logger = logging.getLogger(__name__)
 
-input_scanners = [Toxicity(), TokenLimit(), PromptInjection()]
-output_scanners = [NoRefusal(), Relevance()]
+input_scanners = [TokenLimit(), PromptInjection(), InvisibleText(), BanCode()]
+output_scanners = [NoRefusal(), Relevance(), MaliciousURLs(threshold=0.8)]
 
 
 def clean_input(prompt: str) -> str:
