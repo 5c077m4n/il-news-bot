@@ -1,7 +1,7 @@
 import logging
 import operator
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_openrouter import ChatOpenRouter
@@ -14,7 +14,6 @@ from agents.tools.sources.marker import get_marker
 from agents.tools.sources.ynet import get_ynet
 
 logger = logging.getLogger(__name__)
-llm = ChatOpenRouter(model="google/gemini-3.1-flash-lite-preview")
 
 
 class Article(BaseModel):
@@ -25,9 +24,19 @@ class Article(BaseModel):
 		Field(default_factory=list, description="List of sources"),
 	]
 
+	def __str__(self) -> str:
+		return f"""<strong>{self.title}</strong>
+{self.content}
+{" | ".join(f'<a href="{link}">{i + 1}</a>' for i, link in enumerate(self.links))}
+"""
+
 
 class AnchorResponse(BaseModel):
 	articles: list[Article]
+
+
+llm = ChatOpenRouter(model="google/gemini-3.1-flash-lite-preview")
+news_anchor_llm = llm.with_structured_output(AnchorResponse)
 
 
 class State(BaseModel):
@@ -37,7 +46,7 @@ class State(BaseModel):
 	all_news_items: Annotated[list[Article] | None, operator.add] = None
 
 
-def call_lefty_anchor(state: State) -> dict:
+def call_lefty_anchor(state: State) -> dict[Literal["left_news_items"], list[Article]]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -68,14 +77,15 @@ def call_lefty_anchor(state: State) -> dict:
 		HumanMessage(content=state.prompt or "Please get me all the current news"),
 	]
 
-	struct_llm = llm.with_structured_output(AnchorResponse)
-	response = struct_llm.invoke(messages)
+	response = news_anchor_llm.invoke(messages)
 	anchor_resopnse = AnchorResponse.model_validate(response)
 
 	return {"left_news_items": anchor_resopnse.articles}
 
 
-async def call_righty_anchor(state: State) -> dict:
+async def call_righty_anchor(
+	state: State,
+) -> dict[Literal["right_news_items"], list[Article]]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -103,14 +113,13 @@ async def call_righty_anchor(state: State) -> dict:
 		HumanMessage(content=state.prompt or "Please get me all the current news"),
 	]
 
-	struct_llm = llm.with_structured_output(AnchorResponse)
-	response = struct_llm.invoke(messages)
+	response = news_anchor_llm.invoke(messages)
 	anchor_response = AnchorResponse.model_validate(response)
 
 	return {"right_news_items": anchor_response.articles}
 
 
-def aggregator(state: State) -> dict:
+def aggregator(state: State) -> dict[Literal["all_news_items"], list[Article]]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -161,15 +170,10 @@ def aggregator(state: State) -> dict:
 		),
 	]
 
-	response = llm.invoke(messages)
-	if not response.content:
-		return {"all_news_items": []}
+	response = news_anchor_llm.invoke(messages)
+	anchor_response = AnchorResponse.model_validate(response)
 
-	return {
-		"all_news_items": response.content
-		if isinstance(response.content, list)
-		else [response.content.__str__()]
-	}
+	return {"all_news_items": anchor_response.articles}
 
 
 state_graph = StateGraph(State)
@@ -198,7 +202,7 @@ async def free_query(prompt: str) -> str:
 	news_items = response.get("all_news_items", [])
 
 	news = clean_ouput(
-		response_text="\n".join(news_items),
+		response_text="\n".join(n.__str__() for n in news_items),
 		sanitized_prompt=clean_prompt,
 	)
 	return news
