@@ -46,7 +46,9 @@ class State(BaseModel):
 	all_news_items: Annotated[list[Article] | None, operator.add] = None
 
 
-def call_lefty_anchor(state: State) -> dict[Literal["left_news_items"], list[Article]]:
+async def call_lefty_anchor(
+	state: State,
+) -> dict[Literal["left_news_items"], list[Article]]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -77,7 +79,7 @@ def call_lefty_anchor(state: State) -> dict[Literal["left_news_items"], list[Art
 		HumanMessage(content=state.prompt or "Please get me all the current news"),
 	]
 
-	response = news_anchor_llm.invoke(messages)
+	response = await news_anchor_llm.ainvoke(messages)
 	anchor_resopnse = AnchorResponse.model_validate(response)
 
 	return {"left_news_items": anchor_resopnse.articles}
@@ -113,13 +115,13 @@ async def call_righty_anchor(
 		HumanMessage(content=state.prompt or "Please get me all the current news"),
 	]
 
-	response = news_anchor_llm.invoke(messages)
+	response = await news_anchor_llm.ainvoke(messages)
 	anchor_response = AnchorResponse.model_validate(response)
 
 	return {"right_news_items": anchor_response.articles}
 
 
-def aggregator(state: State) -> dict[Literal["all_news_items"], list[Article]]:
+async def aggregator(state: State) -> dict[Literal["all_news_items"], list[Article]]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -170,7 +172,7 @@ def aggregator(state: State) -> dict[Literal["all_news_items"], list[Article]]:
 		),
 	]
 
-	response = news_anchor_llm.invoke(messages)
+	response = await news_anchor_llm.ainvoke(messages)
 	anchor_response = AnchorResponse.model_validate(response)
 
 	return {"all_news_items": anchor_response.articles}
