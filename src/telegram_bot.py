@@ -23,6 +23,7 @@ async def start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
 	user = update.effective_user
 
 	if user and update.message:
+		logger.info(f"{user.id=} has started")
 		await update.message.reply_html(
 			rf"Hi {user.mention_html()}! How can I help you today?"
 		)
@@ -32,7 +33,10 @@ async def get_summary(
 	update: Update,
 	context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-	if update.effective_chat:
+	if chat := update.effective_chat:
+		if user := update.effective_user:
+			logger.info(f"{user.id=} has requested a summary in {chat.id=}")
+
 		response = await query()
 		text = (
 			escape_markdown(strip_resp)
@@ -40,8 +44,9 @@ async def get_summary(
 			else "Couldn't find anything..."
 		)
 
+		logger.info(f"{chat.id=} has responded with {text}")
 		await context.bot.send_message(
-			chat_id=update.effective_chat.id,
+			chat_id=chat.id,
 			text=text,
 			parse_mode=ParseMode.HTML,
 		)
@@ -51,16 +56,24 @@ async def handle_free_text(
 	update: Update,
 	context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-	if update.message and update.message.text and update.effective_chat:
-		response = await free_query(prompt=update.message.text)
+	if (
+		update.message
+		and (msg := update.message.text)
+		and bool(chat := update.effective_chat)
+	):
+		if user := update.effective_user:
+			logger.info(f"Recieved a message from {user.id=}: {msg} in {chat.id=}")
+
+		response = await free_query(prompt=msg)
 		text = (
 			strip_resp
 			if response and (strip_resp := response.strip())
 			else "Couldn't find anything..."
 		)
+		logger.info(f"Responding to {chat.id=} with {text}")
 
 		await context.bot.send_message(
-			chat_id=update.effective_chat.id,
+			chat_id=chat.id,
 			text=text,
 			parse_mode=ParseMode.HTML,
 		)
@@ -74,6 +87,8 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 		and isinstance(update, Update)
 		and bool(chat := update.effective_chat)
 	):
+		logger.error(f"An error has occured {context.error=} in {chat.id=}")
+
 		if isinstance(context.error, DirtyInputException):
 			await context.bot.send_message(
 				chat_id=chat.id,
@@ -99,7 +114,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 async def register_bot_commnads(app: Application) -> None:
 	await app.bot.set_my_commands(
 		[
-			("start", "Start a conversation"),
 			("summary", "Fetch the latest news"),
 		]
 	)
