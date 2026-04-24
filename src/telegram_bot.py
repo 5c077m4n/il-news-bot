@@ -34,11 +34,15 @@ async def get_summary(
 ) -> None:
 	if update.effective_chat:
 		response = await query()
-		response = escape_markdown(response.strip())
+		text = (
+			escape_markdown(strip_resp)
+			if response and (strip_resp := response.strip())
+			else "Couldn't find anything..."
+		)
 
 		await context.bot.send_message(
 			chat_id=update.effective_chat.id,
-			text=response or "Couldn't find anything...",
+			text=text,
 			parse_mode=ParseMode.HTML,
 		)
 
@@ -49,10 +53,15 @@ async def handle_free_text(
 ) -> None:
 	if update.message and update.message.text and update.effective_chat:
 		response = await free_query(prompt=update.message.text)
+		text = (
+			strip_resp
+			if response and (strip_resp := response.strip())
+			else "Couldn't find anything..."
+		)
 
 		await context.bot.send_message(
 			chat_id=update.effective_chat.id,
-			text=response.strip() or "Couldn't find anything...",
+			text=text,
 			parse_mode=ParseMode.HTML,
 		)
 

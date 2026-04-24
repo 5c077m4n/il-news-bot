@@ -1,5 +1,4 @@
 import logging
-import operator
 from datetime import datetime
 from typing import Annotated, Literal
 
@@ -34,6 +33,9 @@ class Article(BaseModel):
 class AnchorResponse(BaseModel):
 	articles: list[Article]
 
+	def __str__(self) -> str:
+		return "\n".join(n.__str__() for n in self.articles)
+
 
 llm = ChatOpenRouter(model="google/gemini-3.1-flash-lite-preview")
 news_anchor_llm = llm.with_structured_output(AnchorResponse)
@@ -57,9 +59,9 @@ prompt_sanitizer_llm = llm.with_structured_output(PromptSanitizeResponse)
 
 class State(BaseModel):
 	prompt: str | None = None
-	left_news_items: Annotated[list[Article] | None, operator.add] = None
-	right_news_items: Annotated[list[Article] | None, operator.add] = None
-	all_news_items: Annotated[list[Article] | None, operator.add] = None
+	left_news: AnchorResponse | None = None
+	right_news: AnchorResponse | None = None
+	all_news: AnchorResponse | None = None
 
 
 async def sanitize_prompt(state: State) -> dict[Literal["prompt"], str | None]:
@@ -99,7 +101,7 @@ async def sanitize_prompt(state: State) -> dict[Literal["prompt"], str | None]:
 
 async def call_lefty_anchor(
 	state: State,
-) -> dict[Literal["left_news_items"], list[Article]]:
+) -> dict[Literal["left_news"], AnchorResponse]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -133,12 +135,12 @@ async def call_lefty_anchor(
 	response = await news_anchor_llm.ainvoke(messages)
 	anchor_resopnse = AnchorResponse.model_validate(response)
 
-	return {"left_news_items": anchor_resopnse.articles}
+	return {"left_news": anchor_resopnse}
 
 
 async def call_righty_anchor(
 	state: State,
-) -> dict[Literal["right_news_items"], list[Article]]:
+) -> dict[Literal["right_news"], AnchorResponse]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -169,10 +171,10 @@ async def call_righty_anchor(
 	response = await news_anchor_llm.ainvoke(messages)
 	anchor_response = AnchorResponse.model_validate(response)
 
-	return {"right_news_items": anchor_response.articles}
+	return {"right_news": anchor_response}
 
 
-async def aggregator(state: State) -> dict[Literal["all_news_items"], list[Article]]:
+async def aggregator(state: State) -> dict[Literal["all_news"], AnchorResponse]:
 	messages: list[SystemMessage | HumanMessage] = [
 		SystemMessage(
 			content="""
@@ -199,34 +201,28 @@ async def aggregator(state: State) -> dict[Literal["all_news_items"], list[Artic
 			"""
 		),
 		SystemMessage(content=f"The time right now is {datetime.now()}"),
-		SystemMessage(
-			content=f"""
-			These are the left leaning items:
-			{
-				"\n".join(
-					i.model_dump().__str__()
-					for i in (state.left_news_items or [])[0:10]
-				)
-			}
-			"""
-		),
-		SystemMessage(
-			content=f"""
-			These are the right leaning items:
-			{
-				"\n".join(
-					i.model_dump().__str__()
-					for i in (state.right_news_items or [])[0:10]
-				)
-			}
-			"""
-		),
 	]
+	if state.left_news:
+		messages.append(
+			SystemMessage(
+				content=f"""
+				These are the left leaning items: {state.left_news}
+				"""
+			)
+		)
+	if state.right_news:
+		messages.append(
+			SystemMessage(
+				content=f"""
+				These are the right leaning items: {state.right_news}
+				"""
+			),
+		)
 
 	response = await news_anchor_llm.ainvoke(messages)
 	anchor_response = AnchorResponse.model_validate(response)
 
-	return {"all_news_items": anchor_response.articles}
+	return {"all_news": anchor_response}
 
 
 state_graph = StateGraph(State)
@@ -251,19 +247,22 @@ state_graph.add_edge(start_key=aggregator.__name__, end_key=END)
 workflow = state_graph.compile()
 
 
-async def query() -> str:
+async def query() -> str | None:
 	response = await workflow.ainvoke(State())
-	news_items = response.get("all_news_items", [])
-	return "\n".join(n.__str__() for n in news_items)
+	state_out = State.model_validate(response)
+
+	if news := state_out.all_news:
+		return news.__str__()
 
 
-async def free_query(prompt: str) -> str:
+async def free_query(prompt: str) -> str | None:
 	clean_prompt = clean_input(prompt)
 	response = await workflow.ainvoke(State(prompt=clean_prompt))
-	news_items = response.get("all_news_items", [])
+	state_out = State.model_validate(response)
 
-	news = clean_ouput(
-		response_text="\n".join(n.__str__() for n in news_items),
-		sanitized_prompt=clean_prompt,
-	)
-	return news
+	if news := state_out.all_news:
+		news = clean_ouput(
+			response_text=news.__str__(),
+			sanitized_prompt=clean_prompt,
+		)
+		return news
