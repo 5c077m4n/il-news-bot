@@ -30,6 +30,11 @@ tasks:
       - task: ssh
         vars:
           COMMAND: cd /app && git pull --rebase && docker compose up -d --build --remove-orphans
+  ssh:stop:
+    cmds:
+      - task: ssh
+        vars:
+          COMMAND: cd /app && docker compose down
   ssh:logs:
     cmds:
       - task: ssh
