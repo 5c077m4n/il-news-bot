@@ -20,6 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked
 FROM python:3.14-slim
 
 RUN groupadd -g 999 nonroot && useradd -m -u 999 -g nonroot nonroot
+RUN mkdir -p /home/nonroot/.cache/huggingface/ && chown -R nonroot:nonroot /home/nonroot/.cache/huggingface/
 COPY --from=builder --chown=nonroot:nonroot /app /app
 
 ENV PATH="/app/.venv/bin:$PATH"
