@@ -27,6 +27,22 @@ variable "DO_TOKEN" {
   type      = string
   sensitive = true
 }
+variable "MONGODB_HOST" {
+  type      = string
+  sensitive = true
+}
+variable "MONGODB_USERNAME" {
+  type      = string
+  sensitive = true
+}
+variable "MONGODB_PASSWORD" {
+  type      = string
+  sensitive = true
+}
+variable "MONGODB_DATABASE" {
+  type      = string
+  sensitive = true
+}
 
 provider "digitalocean" {
   token = var.DO_TOKEN
@@ -74,9 +90,15 @@ resource "digitalocean_droplet" "news_agents" {
 
     DO_TOKEN=${var.DO_TOKEN}
     OPENROUTER_API_KEY=${var.OPENROUTER_API_KEY}
+
     TELEGRAM_BOT_TOKEN=${var.TELEGRAM_BOT_TOKEN}
     TELEGRAM_API_ID=${var.TELEGRAM_API_ID}
     TELEGRAM_API_HASH=${var.TELEGRAM_API_HASH}
+
+    MONGODB_HOST=${var.MONGODB_HOST}
+    MONGODB_USERNAME=${var.MONGODB_USERNAME}
+    MONGODB_PASSWORD=${var.MONGODB_PASSWORD}
+    MONGODB_DATABASE=${var.MONGODB_DATABASE}
     ENV_FILE
 
     docker compose up -d --build --remove-orphans

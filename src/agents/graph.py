@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
 from agents.prompt_guard import clean_input, clean_ouput
+from agents.tools.sources.abu_ali_express import get_abu_ali_express
 from agents.tools.sources.israel_hayom import get_israel_hayom
 from agents.tools.sources.marker import get_marker
 from agents.tools.sources.ynet import get_ynet
@@ -161,7 +162,7 @@ async def call_righty_anchor(
 		),
 		SystemMessage(content=f"The time right now is {datetime.now()}"),
 		SystemMessage(content=f"Israel Hayom feed: {get_israel_hayom()}"),
-		# SystemMessage(content=f"Abu Ali Express feed: {await get_abu_ali_express()}"),
+		SystemMessage(content=f"Abu Ali Express feed: {await get_abu_ali_express()}"),
 		SystemMessage(
 			content="Keep your responses short and to the point - no fluff words."
 		),

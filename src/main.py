@@ -12,7 +12,7 @@ logging.basicConfig(
 
 
 def main() -> None:
-	load_dotenv(verbose=True)
+	load_dotenv()
 	run_telegram_bot()
 
 

@@ -125,7 +125,12 @@ def run_telegram_bot() -> None:
 		raise Exception("Telegram bot token was not found")
 
 	app = (
-		Application.builder().token(bot_token).post_init(register_bot_commnads).build()
+		Application.builder()
+		.token(bot_token)
+		.post_init(
+			register_bot_commnads,
+		)
+		.build()
 	)
 	app.add_handlers(
 		[

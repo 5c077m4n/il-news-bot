@@ -13,13 +13,18 @@ dependencies = [
   "langgraph>=1.1.8",
   "llm-guard>=0.3.16",
   "pydantic>=2.13.2",
+  "pymongo[srv]>=4.17.0",
   "python-dotenv>=1.2.2",
   "python-telegram-bot>=22.7",
   "telethon>=1.43.2",
 ]
 
 [dependency-groups]
-dev = ["ruff>=0.15.11", "ty>=0.0.31"]
+dev = [
+    "ruff>=0.15.11",
+    "ty>=0.0.31",
+    "uvicorn>=0.46.0",
+]
 
 [tool.ruff]
 line-length = 88
