@@ -5,9 +5,11 @@ dotenv:
 
 tasks:
   run:
-    cmd: uv run src/main.py
+    cmd: go run .
   watch:
-    cmd: PYTHONPATH=src uv run uvicorn --reload src.main:main
+    cmd: air
+  tidy:
+    cmd: go mod tidy
   compose:
     cmd: docker compose --profile "{{.PROFILE}}" up -d --build --remove-orphans
   decompose:
