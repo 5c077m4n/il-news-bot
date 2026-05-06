@@ -1,3 +1,1 @@
-# il-news-bot
-
-A news agent
+# IL News Bot

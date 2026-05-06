@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-set -ueo pipefail
 
-uv run ruff check
-uv run ruff format
-uv run ty check
+set -uexo pipefail
+
+go fix ./... || exit 1
+go vet ./... || exit 1
+go build -o main . || exit 1
+golangci-lint run ./...
 
 gitleaks git --verbose --config=./.gitleaks.toml
