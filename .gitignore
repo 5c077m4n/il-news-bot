@@ -46,6 +46,8 @@ terraform.rc
 
 ## Temporary files
 tmp/
+session.data
+bot_session.data
 
 # Environment variables
 .env

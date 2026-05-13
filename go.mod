@@ -3,6 +3,7 @@ module github.com/5c077m4n/il-news-bot
 go 1.26.3
 
 require (
+	github.com/amarnathcjd/gogram v1.7.3
 	github.com/goccy/go-json v0.10.6
 	github.com/google/jsonschema-go v0.4.3
 	github.com/joho/godotenv v1.5.1
