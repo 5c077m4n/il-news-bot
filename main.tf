@@ -7,6 +7,10 @@ terraform {
   }
 }
 
+variable "DO_TOKEN" {
+  type      = string
+  sensitive = true
+}
 variable "OPENROUTER_API_KEY" {
   type      = string
   sensitive = true
@@ -20,26 +24,6 @@ variable "TELEGRAM_API_ID" {
   sensitive = true
 }
 variable "TELEGRAM_API_HASH" {
-  type      = string
-  sensitive = true
-}
-variable "DO_TOKEN" {
-  type      = string
-  sensitive = true
-}
-variable "MONGODB_HOST" {
-  type      = string
-  sensitive = true
-}
-variable "MONGODB_USERNAME" {
-  type      = string
-  sensitive = true
-}
-variable "MONGODB_PASSWORD" {
-  type      = string
-  sensitive = true
-}
-variable "MONGODB_DATABASE" {
   type      = string
   sensitive = true
 }
@@ -95,10 +79,6 @@ resource "digitalocean_droplet" "news_agents" {
     TELEGRAM_API_ID=${var.TELEGRAM_API_ID}
     TELEGRAM_API_HASH=${var.TELEGRAM_API_HASH}
 
-    MONGODB_HOST=${var.MONGODB_HOST}
-    MONGODB_USERNAME=${var.MONGODB_USERNAME}
-    MONGODB_PASSWORD=${var.MONGODB_PASSWORD}
-    MONGODB_DATABASE=${var.MONGODB_DATABASE}
     ENV_FILE
 
     docker compose up -d --build --remove-orphans
