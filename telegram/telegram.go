@@ -18,7 +18,7 @@ func Run() error {
 		telegram.OnMessage,
 		func(message *telegram.NewMessage) error {
 			if message.Text() == "/start" {
-				articles, err := agents.GetNewsAritcles("Please get me the lastest news")
+				response, err := agents.GetNews("Please get me the lastest news")
 				if err != nil {
 					if _, err := message.Reply(
 						"Sorry, couldn't fetch your news just now...",
@@ -27,9 +27,15 @@ func Run() error {
 					}
 					return err
 				}
+				slog.Info("fetched news successfully")
 
-				resp := agents.AnchorResponse{List: articles}
-				if _, err := message.Reply(resp.String()); err != nil {
+				if message.Sender != nil {
+					slog.Info(
+						"sending resposne to user",
+						slog.String("username", message.Sender.Username),
+					)
+				}
+				if _, err := message.Reply(response.String()); err != nil {
 					return err
 				}
 			}

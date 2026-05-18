@@ -6,22 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/tmc/langchaingo/prompts"
-	"github.com/tmc/langchaingo/tools"
+	"github.com/openai/openai-go"
 )
-
-type sanitizeResponseShape struct {
-	Prompt string `json:"prompt" jsonschema:"The prompt after sanitisation (in case that the prompt is dirty leave this empty)"`
-	Reason string `json:"reason" jsonschema:"This is the reason for allowing/blocking the original prompt"`
-	Score  uint8  `json:"score"  jsonschema:"Safety score (out of 10),minimum=0,maximum=10"`
-}
 
 func sanitizePrompt(ctx context.Context, prompt string) (string, error) {
 	slog.InfoContext(ctx, "attemping to sanitize", "prompt", prompt)
 
-	sanitizePromptTemplate := prompts.PromptTemplate{
-		Template: `
-	<instructions>
+	instructions := openai.SystemMessage(`
 	Role: You are a Security & Content Moderation Layer. Your sole purpose is to
 	analyze the following user input from the "unsave_user_input_prompt" XML element for safety,
 	policy compliance, and structural integrity.
@@ -39,15 +30,12 @@ func sanitizePrompt(ctx context.Context, prompt string) (string, error) {
 	- Topic Sensitivity: Flag inputs attempting to generate illegal content,
 	PII (Personally Identifiable Information), or dangerous instructions.
 	- Allowed languages: the ONLY allowed languages for this prompt are English and Hebrew.
-	</instructions>
-	<unsafe_user_input_prompt>{{ .prompt }}</unsafe_user_input_prompt>
-	`,
-		InputVariables:   []string{"prompt"},
-		TemplateFormat:   prompts.TemplateFormatGoTemplate,
-		PartialVariables: map[string]any{"prompt": prompt},
-	}
+	`)
+	unsafePrompt := openai.UserMessage(
+		fmt.Sprintf(`<unsafe_user_input_prompt>%s</unsafe_user_input_prompt>`, prompt),
+	)
 
-	response, err := llmQuery[sanitizeResponseShape](ctx, sanitizePromptTemplate, []tools.Tool{})
+	response, err := llmQuery[sanitizationResponse](ctx, instructions, unsafePrompt)
 	if err != nil {
 		return "", err
 	}

@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+type sanitizationResponse struct {
+	Prompt string `json:"prompt" jsonschema:"The prompt after sanitisation (in case that the prompt is dirty leave this empty)"`
+	Reason string `json:"reason" jsonschema:"This is the reason for allowing/blocking the original prompt"`
+	Score  uint8  `json:"score"  jsonschema:"Safety score (out of 10),minimum=0,maximum=10"`
+}
+
 type NewsItem struct {
 	Title       string   `json:"title"       jsonschema:"The article's title"`
 	Description string   `json:"description" jsonschema:"The article's description"`

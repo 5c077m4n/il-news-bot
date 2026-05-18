@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func GetNewsAritcles(prompt string) ([]*NewsItem, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+func GetNews(prompt string) (*AnchorResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	safePrompt, err := sanitizePrompt(ctx, prompt)
@@ -16,12 +16,12 @@ func GetNewsAritcles(prompt string) ([]*NewsItem, error) {
 		return nil, err
 	}
 
-	leftArticlesChan := make(chan []*NewsItem)
-	rightArticlesChan := make(chan []*NewsItem)
+	leftAnchorRespChan := make(chan *AnchorResponse)
+	rightAnchorRespChan := make(chan *AnchorResponse)
 
 	wg := sync.WaitGroup{}
 	wg.Go(func() {
-		newsArticles, err := lefty(ctx, safePrompt)
+		response, err := lefty(ctx, safePrompt)
 		if err != nil {
 			slog.WarnContext(
 				ctx,
@@ -31,11 +31,11 @@ func GetNewsAritcles(prompt string) ([]*NewsItem, error) {
 			)
 			return
 		}
-		leftArticlesChan <- newsArticles
-		close(leftArticlesChan)
+		leftAnchorRespChan <- response
+		close(leftAnchorRespChan)
 	})
 	wg.Go(func() {
-		newsArticles, err := righty(ctx, safePrompt)
+		resposne, err := righty(ctx, safePrompt)
 		if err != nil {
 			slog.WarnContext(
 				ctx,
@@ -45,15 +45,15 @@ func GetNewsAritcles(prompt string) ([]*NewsItem, error) {
 			)
 			return
 		}
-		rightArticlesChan <- newsArticles
-		close(leftArticlesChan)
+		rightAnchorRespChan <- resposne
+		close(rightAnchorRespChan)
 	})
 	wg.Wait()
 
-	allArticles, err := accumilator(ctx, <-leftArticlesChan, <-rightArticlesChan)
+	accu, err := accumilator(ctx, <-leftAnchorRespChan, <-rightAnchorRespChan)
 	if err != nil {
 		return nil, err
 	}
 
-	return allArticles, nil
+	return accu, nil
 }
