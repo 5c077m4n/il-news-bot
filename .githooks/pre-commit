@@ -6,5 +6,5 @@ gitleaks git --verbose --config=./.gitleaks.toml
 
 go fix ./... || exit 1
 go vet ./... || exit 1
-go build -o main . || exit 1
+CGO_ENABLED=0 go build -o main . || exit 1
 golangci-lint run ./...
