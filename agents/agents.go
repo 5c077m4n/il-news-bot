@@ -3,12 +3,13 @@ package agents
 import (
 	"context"
 	"log/slog"
-	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func GetNews(prompt string) (*AnchorResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	safePrompt, err := sanitizePrompt(ctx, prompt)
@@ -16,41 +17,35 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 		return nil, err
 	}
 
-	leftAnchorRespChan := make(chan *AnchorResponse)
-	rightAnchorRespChan := make(chan *AnchorResponse)
+	var leftResponse, rightResponse *AnchorResponse
 
-	wg := sync.WaitGroup{}
-	wg.Go(func() {
-		response, err := lefty(ctx, safePrompt)
+	errGroup, errGroupCtx := errgroup.WithContext(ctx)
+	errGroup.Go(func() error {
+		var err error
+		leftResponse, err = lefty(errGroupCtx, safePrompt)
 		if err != nil {
-			slog.WarnContext(
-				ctx,
-				"couldn't fetch articles",
-				slog.String("side", "left"),
-				slog.String("error", err.Error()),
-			)
-			return
+			return err
 		}
-		leftAnchorRespChan <- response
-		close(leftAnchorRespChan)
+		return nil
 	})
-	wg.Go(func() {
-		resposne, err := righty(ctx, safePrompt)
+	errGroup.Go(func() error {
+		var err error
+		rightResponse, err = righty(errGroupCtx, safePrompt)
 		if err != nil {
-			slog.WarnContext(
-				ctx,
-				"couldn't fetch articles",
-				slog.String("side", "right"),
-				slog.String("error", err.Error()),
-			)
-			return
+			return err
 		}
-		rightAnchorRespChan <- resposne
-		close(rightAnchorRespChan)
+		return nil
 	})
-	wg.Wait()
 
-	accu, err := accumilator(ctx, <-leftAnchorRespChan, <-rightAnchorRespChan)
+	if err := errGroup.Wait(); err != nil {
+		slog.WarnContext(
+			ctx,
+			"failed to fetch articles in parallel",
+			slog.String("error", err.Error()),
+		)
+	}
+
+	accu, err := accumilator(ctx, leftResponse, rightResponse)
 	if err != nil {
 		return nil, err
 	}

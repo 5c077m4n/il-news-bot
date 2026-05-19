@@ -9,6 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/openai/openai-go v1.12.0
+	golang.org/x/sync v0.16.0
 )
 
 require (

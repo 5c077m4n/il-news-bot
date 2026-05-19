@@ -95,6 +95,10 @@ func accumilator(
 	After validating all the news lists then you'll return only one that
 	includes all good items from both of them without duplications (if a
 	story is in more than one article then just attach all relevant links).
+	In case you recieve a nil/empty list of news make sure to mention it in
+	your response.
+	Try to group the news results so most responses will have more than one link
+	with an appropriet title and description.
 	`)
 	aritclesPrompt := openai.UserMessage(fmt.Sprintf(`
 	<left_news_articles>%s</left_news_articles>
