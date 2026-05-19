@@ -18,6 +18,12 @@ func Run() error {
 		telegram.OnMessage,
 		func(message *telegram.NewMessage) error {
 			if message.Text() == "/start" {
+				if _, err := message.Reply(
+					"Fetching news...",
+				); err != nil {
+					slog.Error("could not send message", slog.String("error", err.Error()))
+				}
+
 				response, err := agents.GetNews("Please get me the lastest news")
 				if err != nil {
 					if _, err := message.Reply(
