@@ -3,12 +3,11 @@ package telegram
 import (
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-var getTelegramBotClient = sync.OnceValues(func() (*telegram.Client, error) {
+func getBotClient() (*telegram.Client, error) {
 	appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 	if err != nil {
 		return nil, err
@@ -23,9 +22,10 @@ var getTelegramBotClient = sync.OnceValues(func() (*telegram.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if err := client.LoginBot(os.Getenv("TELEGRAM_BOT_TOKEN")); err != nil {
 		return nil, err
 	}
 
 	return client, nil
-})
+}

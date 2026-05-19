@@ -8,46 +8,45 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
+func handleMessage(message *telegram.NewMessage) error {
+	if message.Text() == "/start" {
+		if _, err := message.Reply(
+			"Fetching news...",
+		); err != nil {
+			slog.Error("could not send message", slog.String("error", err.Error()))
+		}
+
+		response, err := agents.GetNews("Please get me the lastest news")
+		if err != nil {
+			if _, err := message.Reply(
+				"Sorry, couldn't fetch your news just now...",
+			); err != nil {
+				slog.Error("could not send message", slog.String("error", err.Error()))
+			}
+			return err
+		}
+		slog.Info("fetched news successfully")
+
+		if message.Sender != nil {
+			slog.Info(
+				"sending resposne to user",
+				slog.String("username", message.Sender.Username),
+			)
+		}
+		if _, err := message.Reply(response.String()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func Run() error {
-	client, err := getTelegramBotClient()
+	client, err := getBotClient()
 	if err != nil {
 		return err
 	}
 
-	client.On(
-		telegram.OnMessage,
-		func(message *telegram.NewMessage) error {
-			if message.Text() == "/start" {
-				if _, err := message.Reply(
-					"Fetching news...",
-				); err != nil {
-					slog.Error("could not send message", slog.String("error", err.Error()))
-				}
-
-				response, err := agents.GetNews("Please get me the lastest news")
-				if err != nil {
-					if _, err := message.Reply(
-						"Sorry, couldn't fetch your news just now...",
-					); err != nil {
-						slog.Error("could not send message", slog.String("error", err.Error()))
-					}
-					return err
-				}
-				slog.Info("fetched news successfully")
-
-				if message.Sender != nil {
-					slog.Info(
-						"sending resposne to user",
-						slog.String("username", message.Sender.Username),
-					)
-				}
-				if _, err := message.Reply(response.String()); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	)
+	client.On(telegram.OnMessage, handleMessage)
 	if _, err := client.BotsSetBotCommands(
 		&telegram.BotCommandScopeDefault{},
 		"en",
