@@ -60,6 +60,7 @@ func llmQuery[T any](
 				slog.Int("attempt", i),
 				slog.String("model", model),
 			)
+			time.Sleep(750 * time.Millisecond)
 			continue
 		}
 
@@ -76,6 +77,7 @@ func llmQuery[T any](
 				slog.Int("attempt", i),
 				slog.String("model", model),
 			)
+			time.Sleep(750 * time.Millisecond)
 			continue
 		}
 		return &result, nil
