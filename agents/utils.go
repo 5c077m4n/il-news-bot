@@ -14,7 +14,7 @@ import (
 	"github.com/openai/openai-go/option"
 )
 
-const model = "google/gemini-3.1-flash-lite-preview"
+const model = "deepseek/deepseek-v4-flash"
 
 var client = openai.NewClient(
 	option.WithBaseURL("https://openrouter.ai/api/v1"),
