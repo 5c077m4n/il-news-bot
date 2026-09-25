@@ -1,6 +1,6 @@
 module github.com/5c077m4n/il-news-bot
 
-go 1.26.3
+go 1.27.1
 
 require (
 	github.com/amarnathcjd/gogram v1.7.3

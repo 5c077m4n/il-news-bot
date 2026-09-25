@@ -1,4 +1,4 @@
-FROM golang:1.26.3 AS builder
+FROM golang:1.27.1 AS builder
 
 ARG GOOS=linux
 ARG GOARCH=amd64
