@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-set -uexo pipefail
-
-gitleaks git --verbose --config=./.gitleaks.toml
+set -ueo pipefail
 
 go fix ./... || exit 1
 go vet ./... || exit 1
-CGO_ENABLED=0 go build -o main . || exit 1
-golangci-lint run ./...
+CGO_ENABLED=0 go build -o /dev/null . || exit 1
+golangci-lint run ./... || exit
+
+gitleaks git --verbose --config=./.gitleaks.toml
