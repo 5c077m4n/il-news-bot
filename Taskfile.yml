@@ -5,7 +5,13 @@ dotenv:
 
 tasks:
   run:
+    env:
+      CGO_ENABLED: 0
     cmd: go run .
+  build:
+    env:
+      CGO_ENABLED: 0
+    cmd: go build -o main .
   watch:
     cmd: air
   tidy:
