@@ -21,19 +21,21 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 
 	errGroup, errGroupCtx := errgroup.WithContext(ctx)
 	errGroup.Go(func() error {
-		var err error
-		leftResponse, err = lefty(errGroupCtx, safePrompt)
+		resp, err := lefty(errGroupCtx, safePrompt)
 		if err != nil {
 			return err
 		}
+
+		leftResponse = resp
 		return nil
 	})
 	errGroup.Go(func() error {
-		var err error
-		rightResponse, err = righty(errGroupCtx, safePrompt)
+		resp, err := righty(errGroupCtx, safePrompt)
 		if err != nil {
 			return err
 		}
+
+		rightResponse = resp
 		return nil
 	})
 
