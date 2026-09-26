@@ -11,7 +11,7 @@ import (
 	"github.com/OpenRouterTeam/go-sdk/models/components"
 )
 
-const unsafeProbabilityThreshold = 0.5
+const unsafeProbabilityThreshold = 0.6
 
 var safetyChecks = []struct {
 	name         string

@@ -2,25 +2,14 @@ package agents
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
-	openrouter "github.com/OpenRouterTeam/go-sdk"
 	"github.com/OpenRouterTeam/go-sdk/models/components"
 	"github.com/OpenRouterTeam/go-sdk/optionalnullable"
 	"github.com/goccy/go-json"
 	"github.com/google/jsonschema-go/jsonschema"
-)
-
-const deepseekModel = "deepseek/deepseek-v4-flash"
-const jevModel = "typesafe/jev-1.13"
-
-var ErrLLMReponseParse = errors.New("could not prase the LLM's resposne")
-var client = openrouter.New(
-	openrouter.WithSecurity(os.Getenv("OPENROUTER_API_KEY")),
 )
 
 func systemMessage(content string) components.ChatMessages {
