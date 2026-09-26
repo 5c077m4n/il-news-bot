@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/5c077m4n/il-news-bot/agents/feeds"
+	"golang.org/x/sync/errgroup"
 )
 
 func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
@@ -43,8 +44,28 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 }
 
 func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	israelHayomFeed, err := feeds.GetIsrealHayom(ctx)
-	if err != nil {
+	var israelHayomFeed, jpostFeed string
+
+	errGroup, errGroupCtx := errgroup.WithContext(ctx)
+	errGroup.Go(func() error {
+		feed, err := feeds.GetIsrealHayom(errGroupCtx)
+		if err != nil {
+			return err
+		}
+
+		israelHayomFeed = feed
+		return nil
+	})
+	errGroup.Go(func() error {
+		feed, err := feeds.GetJPost(errGroupCtx)
+		if err != nil {
+			return err
+		}
+
+		jpostFeed = feed
+		return nil
+	})
+	if err := errGroup.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -63,6 +84,7 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 			"**Do not** send a headline without at least one link to the original source (the more souces the better).",
 		),
 		systemMessage(fmt.Sprintf("Israel Hayom articles: %s", israelHayomFeed)),
+		systemMessage(fmt.Sprintf("Jerusalem Post articles: %s", jpostFeed)),
 		userMessage(prompt),
 	)
 	if err != nil {
