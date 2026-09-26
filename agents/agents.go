@@ -12,16 +12,17 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	safePrompt, err := sanitizePrompt(ctx, prompt)
+	language, err := sanitizePrompt(ctx, prompt)
 	if err != nil {
 		return nil, err
 	}
+	slog.InfoContext(ctx, "detected prompt language", slog.String("language", language))
 
 	var leftResponse, rightResponse *AnchorResponse
 
 	errGroup, errGroupCtx := errgroup.WithContext(ctx)
 	errGroup.Go(func() error {
-		resp, err := lefty(errGroupCtx, safePrompt)
+		resp, err := lefty(errGroupCtx, prompt)
 		if err != nil {
 			return err
 		}
@@ -30,7 +31,7 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 		return nil
 	})
 	errGroup.Go(func() error {
-		resp, err := righty(errGroupCtx, safePrompt)
+		resp, err := righty(errGroupCtx, prompt)
 		if err != nil {
 			return err
 		}
@@ -47,7 +48,7 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 		)
 	}
 
-	accu, err := accumilator(ctx, leftResponse, rightResponse)
+	accu, err := accumilator(ctx, language, leftResponse, rightResponse)
 	if err != nil {
 		return nil, err
 	}

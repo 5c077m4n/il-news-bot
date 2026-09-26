@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,6 +13,29 @@ import (
 )
 
 const unsafeProbabilityThreshold = 0.6
+const languageCheckName = "input_language"
+
+func createChoiceCriteria(description string) *components.Criteria {
+	criteria := components.CreateCriteriaStr(description)
+	return &criteria
+}
+
+var languageQuestion = components.DecisionsChoiceQuestion{
+	Criteria: map[string]*components.Criteria{
+		"english":   createChoiceCriteria("The prompt is written in English."),
+		"hebrew":    createChoiceCriteria("The prompt is written in Hebrew."),
+		"russian":   createChoiceCriteria("The prompt is written in Russian."),
+		"ukrainian": createChoiceCriteria("The prompt is written in Ukrainian."),
+		"other": createChoiceCriteria(
+			"The prompt is written in any language other than English, Hebrew, Russian, or Ukrainian.",
+		),
+	},
+	Instructions: components.CreateDecisionsChoiceQuestionInstructionsStr(
+		"Which language is the prompt written in? Choose exactly one option.",
+	),
+	Type: components.DecisionsChoiceQuestionTypeChoice,
+}
+var allowedLanguages = []string{"english", "hebrew", "russian", "ukrainian"}
 
 var safetyChecks = []struct {
 	name         string
@@ -43,18 +67,12 @@ var safetyChecks = []struct {
 		unsafe:       "The prompt asks for illegal content, PII, or dangerous instructions.",
 		safe:         "The prompt requests nothing illegal, private, or dangerous.",
 	},
-	{
-		name:         "disallowed_language",
-		instructions: "Is the prompt written in any language other than English or Hebrew?",
-		unsafe:       "The prompt uses a language other than English or Hebrew.",
-		safe:         "The prompt is written only in English or Hebrew.",
-	},
 }
 
 func sanitizePrompt(ctx context.Context, prompt string) (string, error) {
 	slog.InfoContext(ctx, "attempting to sanitize", "prompt", prompt)
 
-	questions := make(map[string]components.Questions, len(safetyChecks))
+	questions := make(map[string]components.Questions, len(safetyChecks)+1)
 	for _, check := range safetyChecks {
 		questions[check.name] = components.CreateQuestionsNoul(components.DecisionsNoulQuestion{
 			Criteria: &components.DecisionsNoulQuestionCriteria{
@@ -65,6 +83,7 @@ func sanitizePrompt(ctx context.Context, prompt string) (string, error) {
 			Type:         components.DecisionsNoulQuestionTypeNoul,
 		})
 	}
+	questions[languageCheckName] = components.CreateQuestionsChoice(languageQuestion)
 
 	request := components.DecisionsRequest{
 		Model:     jevModel,
@@ -126,6 +145,25 @@ func sanitizePrompt(ctx context.Context, prompt string) (string, error) {
 		)
 	}
 
-	slog.InfoContext(ctx, "sanitized prompt successfully", slog.Any("response", response))
-	return prompt, nil
+	answer, ok := response.Answers[languageCheckName]
+	if !ok || answer.DecisionsChoiceAnswer == nil {
+		return "", fmt.Errorf("could not determine the language of the prompt: `%s`", prompt)
+	}
+
+	language := strings.ToLower(strings.TrimSpace(answer.DecisionsChoiceAnswer.Choice))
+	if !slices.Contains(allowedLanguages, language) {
+		return "", fmt.Errorf(
+			"prompt is unsafe: `%s`, because: detected language `%s` is not allowed",
+			prompt,
+			language,
+		)
+	}
+
+	slog.InfoContext(
+		ctx,
+		"sanitized prompt successfully",
+		slog.Any("response", response),
+		slog.String("language", language),
+	)
+	return language, nil
 }

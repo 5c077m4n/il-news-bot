@@ -75,6 +75,7 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 
 func accumilator(
 	ctx context.Context,
+	language string,
 	leftReponse, rightResoponse *AnchorResponse,
 ) (*AnchorResponse, error) {
 	slog.InfoContext(
@@ -96,14 +97,16 @@ func accumilator(
 	story is in more than one article then just attach all relevant links).
 	In case you recieve a nil/empty list of news make sure to mention it in
 	your response.
-	Try to group the news results so most responses will have more than one link
-	with an appropriet title and description.
+	Try to group the news results so most responses will have more than one link with an appropriet title and description.
+	Also translate the response to the requested language (if given).
+	Return at most 5 news groups.
 	`)
 	aritclesPrompt := userMessage(
 		fmt.Sprintf(
-			`<left_news_articles>%s</left_news_articles><right_news_articles>%s</right_news_articles>`,
+			`<left_news_articles>%s</left_news_articles><right_news_articles>%s</right_news_articles><requested_language>%s</requested_language>`,
 			leftReponse,
 			rightResoponse,
+			language,
 		),
 	)
 
