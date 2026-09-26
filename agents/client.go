@@ -7,7 +7,7 @@ import (
 	openrouter "github.com/OpenRouterTeam/go-sdk"
 )
 
-const deepseekModel = "deepseek/deepseek-v4-flash"
+const deepseekModel = "deepseek/deepseek-v4.1-flash"
 const jevModel = "typesafe/jev-1.13"
 
 var ErrLLMReponseParse = errors.New("could not prase the LLM's resposne")
