@@ -4,16 +4,24 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/5c077m4n/il-news-bot/agents/feeds"
-	"golang.org/x/sync/errgroup"
 )
 
 func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	ynetFeed, err := feeds.GetYNet(ctx)
-	if err != nil {
-		return nil, err
-	}
+	var ynetFeed string
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		feed, err := feeds.GetYNet(ctx)
+		if err != nil {
+			slog.WarnContext(ctx, "could not fetch YNet data source", slog.Any("error", err))
+		} else {
+			ynetFeed = feed
+		}
+	})
+	wg.Wait()
 
 	response, err := llmQuery[AnchorResponse](
 		ctx,
@@ -46,37 +54,47 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 	var israelHayomFeed, jpostFeed, makorRishon string
 
-	errGroup, errGroupCtx := errgroup.WithContext(ctx)
-	errGroup.Go(func() error {
-		feed, err := feeds.GetIsrealHayom(errGroupCtx)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		feed, err := feeds.GetIsrealHayom(ctx)
 		if err != nil {
-			return err
+			slog.WarnContext(
+				ctx,
+				"could not fetch data source",
+				slog.String("source", "Israel Hayom"),
+				slog.Any("error", err),
+			)
+		} else {
+			israelHayomFeed = feed
 		}
-
-		israelHayomFeed = feed
-		return nil
 	})
-	errGroup.Go(func() error {
-		feed, err := feeds.GetJPost(errGroupCtx)
+	wg.Go(func() {
+		feed, err := feeds.GetJPost(ctx)
 		if err != nil {
-			return err
+			slog.WarnContext(
+				ctx,
+				"could not fetch data source",
+				slog.String("source", "JPost"),
+				slog.Any("error", err),
+			)
+		} else {
+			jpostFeed = feed
 		}
-
-		jpostFeed = feed
-		return nil
 	})
-	errGroup.Go(func() error {
-		feed, err := feeds.GetMakorRishon(errGroupCtx)
+	wg.Go(func() {
+		feed, err := feeds.GetMakorRishon(ctx)
 		if err != nil {
-			return err
+			slog.WarnContext(
+				ctx,
+				"could not fetch data source",
+				slog.String("source", "Makor Rishon"),
+				slog.Any("error", err),
+			)
+		} else {
+			makorRishon = feed
 		}
-
-		makorRishon = feed
-		return nil
 	})
-	if err := errGroup.Wait(); err != nil {
-		return nil, err
-	}
+	wg.Wait()
 
 	response, err := llmQuery[AnchorResponse](
 		ctx,
