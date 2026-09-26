@@ -6,7 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/5c077m4n/il-news-bot/agents/feeds"
-	"github.com/openai/openai-go"
 )
 
 func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
@@ -17,7 +16,7 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 
 	response, err := llmQuery[AnchorResponse](
 		ctx,
-		openai.SystemMessage(`
+		systemMessage(`
 			Act as a progressive news anchor who is principled, calm,
 			and meticulous.
 			Your perspective leans left—prioritizing social justice,
@@ -29,11 +28,11 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 			narrative. Your tone is professional, empathetic, and intellectually
 			rigorous.
 		`),
-		openai.SystemMessage(
+		systemMessage(
 			"**Do not** send a headline without at least one link to the original source (the more souces the better).",
 		),
-		openai.SystemMessage(fmt.Sprintf("YNet articles: %s", ynetFeed)),
-		openai.UserMessage(prompt),
+		systemMessage(fmt.Sprintf("YNet articles: %s", ynetFeed)),
+		userMessage(prompt),
 	)
 	if err != nil {
 		return nil, err
@@ -51,7 +50,7 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 
 	response, err := llmQuery[AnchorResponse](
 		ctx,
-		openai.SystemMessage(`
+		systemMessage(`
 			Act as a principled, center-right news anchor.
 			Your tone is professional, traditional, and analytical.
 			You prioritize individual liberty, fiscal responsibility, and local
@@ -60,11 +59,11 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 			current events through a conservative lens while maintaining strict
 			journalistic integrity and factual accuracy.
 		`),
-		openai.SystemMessage(
+		systemMessage(
 			"**Do not** send a headline without at least one link to the original source (the more souces the better).",
 		),
-		openai.SystemMessage(fmt.Sprintf("Israel Hayom articles: %s", israelHayomFeed)),
-		openai.UserMessage(prompt),
+		systemMessage(fmt.Sprintf("Israel Hayom articles: %s", israelHayomFeed)),
+		userMessage(prompt),
 	)
 	if err != nil {
 		return nil, err
@@ -85,7 +84,7 @@ func accumilator(
 		slog.Any("righty", rightResoponse),
 	)
 
-	anchorMessage := openai.SystemMessage(`
+	anchorMessage := systemMessage(`
 	# You are a fact checker:
 	- Make sure that any and all information passed through you is true
 	- Make sure that all links are valid and return a non-error status code (2**) when opening, that stories are mentioned more than once (a good indication but not definitive)
@@ -100,10 +99,13 @@ func accumilator(
 	Try to group the news results so most responses will have more than one link
 	with an appropriet title and description.
 	`)
-	aritclesPrompt := openai.UserMessage(fmt.Sprintf(`
-	<left_news_articles>%s</left_news_articles>
-	<right_news_articles>%s</right_news_articles>
-	`, leftReponse, rightResoponse))
+	aritclesPrompt := userMessage(
+		fmt.Sprintf(
+			`<left_news_articles>%s</left_news_articles><right_news_articles>%s</right_news_articles>`,
+			leftReponse,
+			rightResoponse,
+		),
+	)
 
 	response, err := llmQuery[AnchorResponse](ctx, anchorMessage, aritclesPrompt)
 	if err != nil {
