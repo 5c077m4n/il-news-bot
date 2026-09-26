@@ -12,8 +12,8 @@ func getRSSFeed(url string) func(context.Context) (string, error) {
 		parserCtx, parserCancel := context.WithTimeout(ctx, 10*time.Second)
 		defer parserCancel()
 
-		fp := gofeed.NewParser()
-		feed, err := fp.ParseURLWithContext(url, parserCtx)
+		feedParser := gofeed.NewParser()
+		feed, err := feedParser.ParseURLWithContext(url, parserCtx)
 		if err != nil {
 			return "", err
 		}
