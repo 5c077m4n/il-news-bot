@@ -44,7 +44,7 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 }
 
 func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	var israelHayomFeed, jpostFeed string
+	var israelHayomFeed, jpostFeed, makorRishon string
 
 	errGroup, errGroupCtx := errgroup.WithContext(ctx)
 	errGroup.Go(func() error {
@@ -63,6 +63,15 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 		}
 
 		jpostFeed = feed
+		return nil
+	})
+	errGroup.Go(func() error {
+		feed, err := feeds.GetMakorRishon(errGroupCtx)
+		if err != nil {
+			return err
+		}
+
+		makorRishon = feed
 		return nil
 	})
 	if err := errGroup.Wait(); err != nil {
@@ -85,6 +94,7 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 		),
 		systemMessage(fmt.Sprintf("Israel Hayom articles: %s", israelHayomFeed)),
 		systemMessage(fmt.Sprintf("Jerusalem Post articles: %s", jpostFeed)),
+		systemMessage(fmt.Sprintf("Makor Rishon articles: %s", makorRishon)),
 		userMessage(prompt),
 	)
 	if err != nil {
