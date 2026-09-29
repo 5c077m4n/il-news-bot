@@ -348,16 +348,17 @@ resource "null_resource" "deploy" {
   provisioner "local-exec" {
     command = "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags=\"-w -s\" -a -installsuffix cgo -o main ."
   }
-
   provisioner "remote-exec" {
     inline = ["sudo cloud-init status --wait"]
   }
-
   provisioner "file" {
     source      = "${path.module}/main"
     destination = "/opt/il-news-bot/main.new"
   }
-
+  provisioner "file" {
+    source      = "${path.module}/telegram_session.data"
+    destination = "/opt/il-news-bot/telegram_session.data"
+  }
   provisioner "remote-exec" {
     inline = [
       "sudo mv --force /opt/il-news-bot/main.new /opt/il-news-bot/main",

@@ -54,7 +54,7 @@ func getChannelFeed(channelHandle string) func(context.Context) ([]string, error
 			AppID:    int32(appID),
 			AppHash:  os.Getenv("TELEGRAM_API_HASH"),
 			LogLevel: telegram.LogInfo,
-			Session:  "bot_session.data",
+			Session:  "telegram_session.data",
 		})
 		if err != nil {
 			return nil, err
