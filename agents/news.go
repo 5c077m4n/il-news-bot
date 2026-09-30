@@ -67,8 +67,9 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 }
 
 var rightNews = map[string]func(context.Context) (string, error){
-	"Israel Hayom": feeds.GetIsrealHayom,
-	"JPost":        feeds.GetJPost,
+	"Israel Hayom":    feeds.GetIsrealHayom,
+	"JPost":           feeds.GetJPost,
+	"Abu Ali Express": feeds.GetAbuAliExpress,
 }
 
 func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {

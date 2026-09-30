@@ -6,48 +6,25 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/5c077m4n/il-news-bot/db"
 	"github.com/amarnathcjd/gogram/telegram"
-	"github.com/cockroachdb/pebble"
-	"github.com/goccy/go-json"
 )
 
-type cachedMessages struct {
-	Timestamp time.Time `json:"timestamp"`
-	Messages  []string  `json:"messages"`
-}
-
-func getChannelFeed(channelHandle string) func(context.Context) ([]string, error) {
-	return func(ctx context.Context) ([]string, error) {
-		db, err := DB()
-		if err != nil {
-			return nil, err
-		}
-
+func getChannelFeed(channelHandle string) func(context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
 		key := fmt.Appendf(nil, "telegram:%s", channelHandle)
-		if value, closer, err := db.Get(key); err == nil {
-			defer func() {
-				if err := closer.Close(); err != nil {
-					slog.ErrorContext(
-						ctx,
-						"could not close PebbleDB instance",
-						slog.String("error", err.Error()),
-					)
-				}
-			}()
-
-			var cached cachedMessages
-			if err := json.UnmarshalContext(ctx, value, &cached); err == nil {
-				if time.Since(cached.Timestamp) < time.Hour {
-					return cached.Messages, nil
-				}
+		if cached, createdAt, err := db.Get[[]string](ctx, key); err == nil {
+			if time.Since(createdAt) < time.Hour {
+				return strings.Join(*cached, "\n"), nil
 			}
 		}
 
 		appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		client, err := telegram.NewClient(telegram.ClientConfig{
@@ -57,11 +34,11 @@ func getChannelFeed(channelHandle string) func(context.Context) ([]string, error
 			Session:  "telegram_session.data",
 		})
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		if _, err := client.Login(os.Getenv("TELEGRAM_PHONE_NUMBER")); err != nil {
-			return nil, err
+			return "", err
 		}
 
 		messages, err := client.GetMessages(
@@ -69,7 +46,7 @@ func getChannelFeed(channelHandle string) func(context.Context) ([]string, error
 			&telegram.SearchOption{Context: ctx, Limit: 70},
 		)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		results := make([]string, 0, len(messages))
@@ -77,20 +54,15 @@ func getChannelFeed(channelHandle string) func(context.Context) ([]string, error
 			results = append(results, msg.Text())
 		}
 
-		cache := cachedMessages{Timestamp: time.Now(), Messages: results}
-		cacheBytes, err := json.MarshalContext(ctx, cache)
-		if err != nil {
-			slog.WarnContext(ctx, "could not update cache", slog.String("error", err.Error()))
-		} else {
-			if err := db.Set(key, cacheBytes, pebble.Sync); err != nil {
-				slog.WarnContext(
-					ctx,
-					"could not set value in cache",
-					slog.String("key", string(key)),
-				)
-			}
+		if err := db.Set(ctx, key, results); err != nil {
+			slog.WarnContext(
+				ctx,
+				"could not set value in cache",
+				slog.String("key", string(key)),
+				slog.String("error", err.Error()),
+			)
 		}
 
-		return results, nil
+		return strings.Join(results, "\n"), nil
 	}
 }

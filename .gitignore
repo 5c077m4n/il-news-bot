@@ -46,8 +46,12 @@ terraform.rc
 
 ## Temporary files
 tmp/
+
+## Session data
+pebble_data/
 session.data
 *_session.data
+*.db
 
 # Environment variables
 .env
