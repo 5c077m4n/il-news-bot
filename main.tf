@@ -36,6 +36,10 @@ variable "TELEGRAM_API_HASH" {
   type      = string
   sensitive = true
 }
+variable "TELEGRAM_PHONE_NUMBER" {
+  type      = string
+  sensitive = true
+}
 variable "ssh_allowed_ip" {
   type        = string
   description = "Your public IP, allowed to SSH to the instance (no /32 suffix)"
@@ -108,6 +112,11 @@ resource "aws_ssm_parameter" "telegram_api_hash" {
   type  = "SecureString"
   value = var.TELEGRAM_API_HASH
 }
+resource "aws_ssm_parameter" "telegram_phone_number" {
+  name  = "/il-news-bot/TELEGRAM_PHONE_NUMBER"
+  type  = "SecureString"
+  value = var.TELEGRAM_PHONE_NUMBER
+}
 
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
@@ -143,6 +152,7 @@ resource "aws_iam_role_policy" "ec2_instance_ssm" {
           aws_ssm_parameter.telegram_bot_token.arn,
           aws_ssm_parameter.telegram_api_id.arn,
           aws_ssm_parameter.telegram_api_hash.arn,
+          aws_ssm_parameter.telegram_phone_number.arn,
         ]
       },
       {
@@ -262,7 +272,7 @@ resource "aws_launch_template" "news_agents" {
 
       env_file="/opt/il-news-bot/.env"
       printf 'ENV=prod\n' >> "$env_file"
-      for name in OPENROUTER_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_API_ID TELEGRAM_API_HASH; do
+      for name in OPENROUTER_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_API_ID TELEGRAM_API_HASH TELEGRAM_PHONE_NUMBER; do
         value=""
         for i in $(seq 1 12); do
           if value=$(aws ssm get-parameter --name "/il-news-bot/$name" --with-decryption --query Parameter.Value --output text --region ${var.aws_region} 2>/dev/null); then
