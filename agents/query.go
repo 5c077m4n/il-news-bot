@@ -54,12 +54,15 @@ func llmQuery[T any](
 				string(schemaBytes),
 			),
 		),
-		systemMessage(fmt.Sprintf("The current time is: %s", time.Now().String())),
 		prompt,
 	}
 	if len(rest) > 0 {
 		messages = append(messages, rest...)
 	}
+	messages = append(
+		messages,
+		systemMessage(fmt.Sprintf("The current time is: %s", time.Now().String())),
+	)
 	params := components.ChatRequest{
 		Messages: messages,
 		Seed:     optionalnullable.From(new(int64(0))),

@@ -7,22 +7,40 @@ import (
 	"sync"
 
 	"github.com/5c077m4n/il-news-bot/agents/feeds"
+	"github.com/OpenRouterTeam/go-sdk/models/components"
 )
 
+var leftNews = map[string]func(context.Context) (string, error){
+	"YNet": feeds.GetYNet,
+}
+
 func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	var ynetFeed string
+	sources := map[string]string{}
 
 	var wg sync.WaitGroup
-	wg.Go(func() {
-		feed, err := feeds.GetYNet(ctx)
-		if err != nil {
-			slog.WarnContext(ctx, "could not fetch YNet data source", slog.Any("error", err))
-		} else {
-			ynetFeed = feed
-		}
-	})
+	for name, getter := range leftNews {
+		wg.Go(func() {
+			feed, err := getter(ctx)
+			if err != nil {
+				slog.WarnContext(
+					ctx,
+					"could not fetch data source",
+					slog.String("source", name),
+					slog.Any("error", err),
+				)
+				return
+			}
+			sources[name] = feed
+		})
+	}
 	wg.Wait()
 
+	messages := []components.ChatMessages{}
+	for name, content := range sources {
+		newMessage := systemMessage(fmt.Sprintf("%s articles: %s", name, content))
+		messages = append(messages, newMessage)
+	}
+	messages = append(messages, userMessage(prompt))
 	response, err := llmQuery[AnchorResponse](
 		ctx,
 		systemMessage(`
@@ -36,12 +54,9 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 			Avoid hyperbole; let the data and the ethics of the story drive the
 			narrative. Your tone is professional, empathetic, and intellectually
 			rigorous.
+			**Do not** send a headline without at least one link to the original source (the more souces the better).
 		`),
-		systemMessage(
-			"**Do not** send a headline without at least one link to the original source (the more souces the better).",
-		),
-		systemMessage(fmt.Sprintf("YNet articles: %s", ynetFeed)),
-		userMessage(prompt),
+		messages...,
 	)
 	if err != nil {
 		return nil, err
@@ -51,50 +66,38 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 	return response, nil
 }
 
+var rightNews = map[string]func(context.Context) (string, error){
+	"Israel Hayom": feeds.GetIsrealHayom,
+	"JPost":        feeds.GetJPost,
+}
+
 func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	var israelHayomFeed, jpostFeed, makorRishon string
+	sources := map[string]string{}
 
 	var wg sync.WaitGroup
-	wg.Go(func() {
-		feed, err := feeds.GetIsrealHayom(ctx)
-		if err != nil {
-			slog.WarnContext(
-				ctx,
-				"could not fetch data source",
-				slog.String("source", "Israel Hayom"),
-				slog.Any("error", err),
-			)
-		} else {
-			israelHayomFeed = feed
-		}
-	})
-	wg.Go(func() {
-		feed, err := feeds.GetJPost(ctx)
-		if err != nil {
-			slog.WarnContext(
-				ctx,
-				"could not fetch data source",
-				slog.String("source", "JPost"),
-				slog.Any("error", err),
-			)
-		} else {
-			jpostFeed = feed
-		}
-	})
-	wg.Go(func() {
-		feed, err := feeds.GetMakorRishon(ctx)
-		if err != nil {
-			slog.WarnContext(
-				ctx,
-				"could not fetch data source",
-				slog.String("source", "Makor Rishon"),
-				slog.Any("error", err),
-			)
-		} else {
-			makorRishon = feed
-		}
-	})
+	for name, getter := range rightNews {
+		wg.Go(func() {
+			feed, err := getter(ctx)
+			if err != nil {
+				slog.WarnContext(
+					ctx,
+					"could not fetch data source",
+					slog.String("source", name),
+					slog.Any("error", err),
+				)
+				return
+			}
+			sources[name] = feed
+		})
+	}
 	wg.Wait()
+
+	messages := []components.ChatMessages{}
+	for name, content := range sources {
+		newMessage := systemMessage(fmt.Sprintf("%s articles: %s", name, content))
+		messages = append(messages, newMessage)
+	}
+	messages = append(messages, userMessage(prompt))
 
 	response, err := llmQuery[AnchorResponse](
 		ctx,
@@ -106,14 +109,9 @@ func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 			credible source or data point. Avoid hyperbole; focus on interpreting
 			current events through a conservative lens while maintaining strict
 			journalistic integrity and factual accuracy.
+			**Do not** send a headline without at least one link to the original source (the more souces the better).
 		`),
-		systemMessage(
-			"**Do not** send a headline without at least one link to the original source (the more souces the better).",
-		),
-		systemMessage(fmt.Sprintf("Israel Hayom articles: %s", israelHayomFeed)),
-		systemMessage(fmt.Sprintf("Jerusalem Post articles: %s", jpostFeed)),
-		systemMessage(fmt.Sprintf("Makor Rishon articles: %s", makorRishon)),
-		userMessage(prompt),
+		messages...,
 	)
 	if err != nil {
 		return nil, err
