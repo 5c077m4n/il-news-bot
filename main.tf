@@ -271,7 +271,7 @@ resource "aws_launch_template" "news_agents" {
       umask 077
 
       env_file="/opt/il-news-bot/.env"
-      printf 'ENV=prod\n' >> "$env_file"
+      printf 'ENV=prod\n' > "$env_file"
       for name in OPENROUTER_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_API_ID TELEGRAM_API_HASH TELEGRAM_PHONE_NUMBER; do
         value=""
         for i in $(seq 1 12); do
