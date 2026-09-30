@@ -6,7 +6,7 @@ require (
 	github.com/OpenRouterTeam/go-sdk v0.8.31
 	github.com/amarnathcjd/gogram v1.7.3
 	github.com/cockroachdb/pebble v1.1.5
-	github.com/goccy/go-json v0.10.6
+	github.com/goccy/go-json v0.11.2
 	github.com/google/jsonschema-go v0.4.3
 	github.com/joho/godotenv v1.5.1
 	github.com/mmcdole/gofeed v1.3.0
