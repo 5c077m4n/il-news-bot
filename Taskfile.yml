@@ -22,12 +22,10 @@ tasks:
   tidy:
     cmd: go mod tidy
 
-  cloud:start:
-    cmd: aws ecs update-service --cluster {{.CLUSTER}} --service {{.SERVICE}} --desired-count 1 --region {{.AWS_REGION}}
   cloud:ssh:
     vars:
       EC2_IP:
-        sh: aws ec2 describe-instances --region il-central-1 --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ecs-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].PublicIpAddress" --output text
+        sh: aws ec2 describe-instances --region il-central-1 --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].PublicIpAddress" --output text
     cmd: ssh -i ~/.ssh/keys/aws_ed25519 "ec2-user@{{.EC2_IP}}" "{{.COMMAND}}"
   cloud:logs:
     cmds:

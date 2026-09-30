@@ -306,7 +306,7 @@ resource "aws_launch_template" "news_agents" {
 }
 
 resource "aws_autoscaling_group" "news_agents" {
-  name                = "il-news-bot-ecs-${aws_launch_template.news_agents.latest_version}"
+  name                = "il-news-bot-ec2-${aws_launch_template.news_agents.latest_version}"
   vpc_zone_identifier = data.aws_subnets.default.ids
   min_size            = 1
   max_size            = 1
