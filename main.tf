@@ -226,38 +226,6 @@ resource "aws_launch_template" "news_agents" {
       sed -i -E 's/^#?[[:space:]]*upgrade_type.*/upgrade_type = security/; s/^#?[[:space:]]*apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
       systemctl enable --now dnf-automatic.timer
 
-      if ! command -v fail2ban-client >/dev/null 2>&1; then
-        dnf install -y python3-pip python3-systemd
-        pip3 install --upgrade fail2ban
-      fi
-      cat >/etc/fail2ban/jail.d/sshd.local <<'EOF'
-      [sshd]
-      enabled  = true
-      backend  = systemd
-      port     = ssh
-      maxretry = 5
-      findtime = 10m
-      bantime  = 1h
-      EOF
-      cat >/etc/systemd/system/fail2ban.service <<'EOF'
-      [Unit]
-      Description=Fail2Ban Service
-      After=network.target sshd.service
-
-      [Service]
-      Type=forking
-      ExecStart=/usr/local/bin/fail2ban-server -xf start
-      ExecStop=/usr/local/bin/fail2ban-client stop
-      PIDFile=/run/fail2ban/fail2ban.pid
-      Restart=on-failure
-
-      [Install]
-      WantedBy=multi-user.target
-      EOF
-
-      systemctl daemon-reload
-      systemctl enable --now fail2ban
-
       cat >/usr/local/bin/il-news-bot-env.sh <<'EOF'
       #!/bin/bash
 
