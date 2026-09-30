@@ -27,6 +27,11 @@ tasks:
       EC2_IP:
         sh: aws ec2 describe-instances --region il-central-1 --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].PublicIpAddress" --output text
     cmd: ssh -i ~/.ssh/keys/aws_ed25519 "ec2-user@{{.EC2_IP}}" "{{.COMMAND}}"
+  cloud:status:
+    cmds:
+      - vars:
+          COMMAND: systemctl status il-news-bot.service
+        task: cloud:ssh
   cloud:logs:
     cmds:
       - vars:
