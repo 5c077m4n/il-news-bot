@@ -210,6 +210,9 @@ resource "aws_launch_template" "news_agents" {
   user_data = base64encode(
     <<-EOT
       #!/bin/bash
+
+      set -euo pipefail
+
       mkdir -p /opt/il-news-bot
       chown ec2-user:ec2-user /opt/il-news-bot
 
