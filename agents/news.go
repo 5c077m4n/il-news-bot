@@ -141,12 +141,9 @@ func accumilator(
 	- Use ONLY the links provided without adding new ones on your own
 
 	# How to respond
-	After validating all the news lists then you'll return only one that
-	includes all good items from both of them without duplications (if a
-	story is in more than one article then just attach all relevant links).
-	In case you recieve a nil/empty list of news make sure to mention it in
-	your response.
-	Try to group the news results so most responses will have more than one link with an appropriet title and description.
+	After validating all the news lists then you'll return only one that includes all good items from both of them without duplications (if a
+	story is in more than one article then just attach all relevant links). In case you recieve a nil/empty list of news make sure to mention it in your response.
+	Try to group the news results by subject so most responses will have more than one link with an appropriet title and up to 20 word description.
 	Also translate the response to the requested language (if given).
 	Return at most 5 news groups.
 	`)
