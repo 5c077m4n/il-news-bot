@@ -40,16 +40,6 @@ variable "TELEGRAM_PHONE_NUMBER" {
   type      = string
   sensitive = true
 }
-variable "ssh_allowed_ip" {
-  type        = string
-  description = "Your public IP, allowed to SSH to the instance (no /32 suffix)"
-  sensitive   = true
-}
-variable "ssh_public_key_path" {
-  type    = string
-  default = "~/.ssh/keys/aws_ed25519.pub"
-}
-
 provider "aws" {
   profile = var.aws_profile
   region  = var.aws_region
@@ -74,14 +64,6 @@ resource "aws_security_group" "news_agents" {
   name        = "il-news-bot-firewall"
   description = "Firewall for il-news-bot"
 
-  ingress {
-    description = "SSH"
-    protocol    = "tcp"
-    from_port   = 22
-    to_port     = 22
-    cidr_blocks = ["${var.ssh_allowed_ip}/32"]
-  }
-
   egress {
     description      = "All outbound"
     protocol         = "-1"
@@ -90,6 +72,135 @@ resource "aws_security_group" "news_agents" {
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_s3_bucket" "artifacts" {
+  bucket        = "il-news-bot-artifacts-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "artifacts" {
+  bucket                  = aws_s3_bucket.artifacts.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+data "aws_iam_policy_document" "artifacts_kms" {
+  statement {
+    sid       = "AllowAccountFullControl"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
+}
+
+resource "aws_kms_key" "artifacts" {
+  description             = "il-news-bot artifacts encryption"
+  deletion_window_in_days = 7
+  policy                  = data.aws_iam_policy_document.artifacts_kms.json
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  rule {
+    bucket_key_enabled = true
+
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.artifacts.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  rule {
+    id     = "expire-old-deploy-versions"
+    status = "Enabled"
+
+    filter {
+      prefix = "deploy/"
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
+data "aws_iam_policy_document" "artifacts" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    resources = [
+      aws_s3_bucket.artifacts.arn,
+      "${aws_s3_bucket.artifacts.arn}/*",
+    ]
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+
+  statement {
+    sid     = "DenyNonAccountPrincipals"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    resources = [
+      aws_s3_bucket.artifacts.arn,
+      "${aws_s3_bucket.artifacts.arn}/*",
+    ]
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:PrincipalAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+  policy = data.aws_iam_policy_document.artifacts.json
 }
 
 resource "aws_ssm_parameter" "openrouter_api_key" {
@@ -158,12 +269,32 @@ resource "aws_iam_role_policy" "ec2_instance_ssm" {
       {
         Effect   = "Allow"
         Action   = ["kms:Decrypt"]
-        Resource = [data.aws_kms_alias.ssm.target_key_arn]
+        Resource = [data.aws_kms_alias.ssm.target_key_arn, aws_kms_key.artifacts.arn]
       }
     ]
   })
 }
 
+resource "aws_iam_role_policy_attachment" "ec2_instance_ssm_core" {
+  role       = aws_iam_role.ec2_instance.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy" "ec2_instance_s3" {
+  name = "deploy-artifacts"
+  role = aws_iam_role.ec2_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = ["${aws_s3_bucket.artifacts.arn}/deploy/*"]
+      }
+    ]
+  })
+}
 resource "aws_iam_instance_profile" "ec2_instance" {
   name = "il-news-bot-ec2-instance"
   role = aws_iam_role.ec2_instance.name
@@ -173,16 +304,10 @@ data "aws_ssm_parameter" "al2023_ami" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
-resource "aws_key_pair" "news_agents" {
-  key_name   = "il-news-bot"
-  public_key = file(pathexpand(var.ssh_public_key_path))
-}
-
 resource "aws_launch_template" "news_agents" {
   name          = "il-news-bot"
   image_id      = data.aws_ssm_parameter.al2023_ami.value
   instance_type = "t3.small"
-  key_name      = aws_key_pair.news_agents.key_name
 
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2_instance.name
@@ -216,14 +341,7 @@ resource "aws_launch_template" "news_agents" {
       mkdir -p /opt/il-news-bot
       chown ec2-user:ec2-user /opt/il-news-bot
 
-      cat >/etc/ssh/sshd_config.d/60-hardening.conf <<'EOF'
-      PasswordAuthentication no
-      KbdInteractiveAuthentication no
-      PermitRootLogin no
-      EOF
-
-      chmod 600 /etc/ssh/sshd_config.d/60-hardening.conf
-      sshd -t && systemctl restart sshd
+      systemctl disable --now sshd.service
 
       dnf install -y dnf-automatic
       sed -i -E 's/^#?[[:space:]]*upgrade_type.*/upgrade_type = security/; s/^#?[[:space:]]*apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
@@ -300,54 +418,83 @@ resource "aws_autoscaling_group" "news_agents" {
   }
 }
 
-data "aws_instances" "news_agents" {
-  filter {
-    name   = "tag:aws:autoscaling:groupName"
-    values = [aws_autoscaling_group.news_agents.name]
-  }
-
-  filter {
-    name   = "instance-state-name"
-    values = ["running"]
-  }
-
-  depends_on = [aws_autoscaling_group.news_agents]
-}
-
 resource "null_resource" "deploy" {
   triggers = {
     deploy_id = local.deploy_id
   }
 
-  connection {
-    type        = "ssh"
-    host        = data.aws_instances.news_agents.public_ips[0]
-    user        = "ec2-user"
-    private_key = file(trimsuffix(pathexpand(var.ssh_public_key_path), ".pub"))
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -euo pipefail
+
+      CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -a -installsuffix cgo -o main .
+      aws s3 cp --region ${var.aws_region} main s3://${aws_s3_bucket.artifacts.bucket}/deploy/main
+      aws s3 cp --region ${var.aws_region} telegram_session.data s3://${aws_s3_bucket.artifacts.bucket}/deploy/telegram_session.data
+    EOT
   }
 
   provisioner "local-exec" {
-    command = "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags=\"-w -s\" -a -installsuffix cgo -o main ."
-  }
-  provisioner "remote-exec" {
-    inline = ["sudo cloud-init status --wait"]
-  }
-  provisioner "file" {
-    source      = "${path.module}/main"
-    destination = "/opt/il-news-bot/main.new"
-  }
-  provisioner "file" {
-    source      = "${path.module}/telegram_session.data"
-    destination = "/opt/il-news-bot/telegram_session.data"
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "sudo mv --force /opt/il-news-bot/main.new /opt/il-news-bot/main",
-      "sudo chmod 755 /opt/il-news-bot/main",
-      "sudo systemctl enable il-news-bot",
-      "sudo systemctl restart il-news-bot",
-    ]
+    command = <<-EOT
+      set -euo pipefail
+
+      instance_id=""
+      for i in $(seq 1 60); do
+        instance_id=$(aws ec2 describe-instances --region ${var.aws_region} --filters "Name=tag:aws:autoscaling:groupName,Values=${aws_autoscaling_group.news_agents.name}" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output text)
+        if [ -n "$instance_id" ] && [ "$instance_id" != "None" ]; then
+          break
+        fi
+        echo "waiting for a running instance (attempt $i/60)..."
+        sleep 10
+      done
+      if [ -z "$instance_id" ] || [ "$instance_id" = "None" ]; then
+        echo "no running instance found" >&2
+        exit 1
+      fi
+
+      command_id=""
+      for i in $(seq 1 60); do
+        if command_id=$(aws ssm send-command \
+          --region ${var.aws_region} \
+          --instance-ids "$instance_id" \
+          --document-name "AWS-RunShellScript" \
+          --comment "il-news-bot deploy" \
+          --parameters '{
+            "commands": [
+              "cloud-init status --wait",
+              "command -v aws >/dev/null 2>&1 || dnf install -y -q aws-cli",
+              "mkdir -p /opt/il-news-bot",
+              "aws s3 cp --region ${var.aws_region} s3://${aws_s3_bucket.artifacts.bucket}/deploy/main /opt/il-news-bot/main.new",
+              "aws s3 cp --region ${var.aws_region} s3://${aws_s3_bucket.artifacts.bucket}/deploy/telegram_session.data /opt/il-news-bot/telegram_session.data",
+              "mv --force /opt/il-news-bot/main.new /opt/il-news-bot/main",
+              "chmod 755 /opt/il-news-bot/main",
+              "chown ec2-user:ec2-user /opt/il-news-bot/main /opt/il-news-bot/telegram_session.data",
+              "chmod 600 /opt/il-news-bot/telegram_session.data",
+              "systemctl enable il-news-bot",
+              "systemctl restart il-news-bot"
+            ]
+          }' \
+          --query "Command.CommandId" \
+          --output text 2>&1); then
+          break
+        fi
+        echo "waiting for the SSM agent (attempt $i/60): $command_id" >&2
+        command_id=""
+        sleep 10
+      done
+      if [ -z "$command_id" ]; then
+        echo "failed to send the deploy command via SSM" >&2
+        exit 1
+      fi
+
+      aws ssm wait command-executed --region ${var.aws_region} --command-id "$command_id" --instance-id "$instance_id" 2>/dev/null || true
+      status=$(aws ssm get-command-invocation --region ${var.aws_region} --command-id "$command_id" --instance-id "$instance_id" --query "Status" --output text)
+      aws ssm get-command-invocation --region ${var.aws_region} --command-id "$command_id" --instance-id "$instance_id" --query "[StandardOutputContent,StandardErrorContent]" --output text
+      if [ "$status" != "Success" ]; then
+        echo "deploy command finished with status: $status" >&2
+        exit 1
+      fi
+    EOT
   }
 
-  depends_on = [aws_autoscaling_group.news_agents]
+  depends_on = [aws_autoscaling_group.news_agents, aws_s3_bucket.artifacts]
 }

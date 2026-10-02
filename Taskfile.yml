@@ -22,21 +22,45 @@ tasks:
   tidy:
     cmd: go mod tidy
 
-  cloud:ssh:
+  cloud:ssm:
+    desc: Interactive shell on the instance via SSM Session Manager
     vars:
-      EC2_IP:
-        sh: aws ec2 describe-instances --region il-central-1 --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].PublicIpAddress" --output text
-    cmd: ssh -i ~/.ssh/keys/aws_ed25519 "ec2-user@{{.EC2_IP}}" "{{.COMMAND}}"
+      EC2_ID:
+        sh: aws ec2 describe-instances --region {{.AWS_REGION}} --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output text
+    cmd: aws ssm start-session --region {{.AWS_REGION}} --target {{.EC2_ID}}
+  cloud:cmd:
+    desc: Run a command on the instance, e.g. task cloud:cmd COMMAND="uptime"
+    requires:
+      vars:
+        - COMMAND
+    vars:
+      EC2_ID:
+        sh: aws ec2 describe-instances --region {{.AWS_REGION}} --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output text
+    cmd: |
+      COMMAND_ID=$(aws ssm send-command \
+        --region {{.AWS_REGION}} \
+        --instance-ids "{{.EC2_ID}}" \
+        --document-name "AWS-RunShellScript" \
+        --comment "taskfile" \
+        --parameters '{"commands":[{{.COMMAND | toJSON}}]}' \
+        --query "Command.CommandId" \
+        --output text)
+      aws ssm wait command-executed --region {{.AWS_REGION}} --command-id "$COMMAND_ID" --instance-id "{{.EC2_ID}}" 2>/dev/null || true
+      STATUS=$(aws ssm get-command-invocation --region {{.AWS_REGION}} --command-id "$COMMAND_ID" --instance-id "{{.EC2_ID}}" --query "Status" --output text)
+      aws ssm get-command-invocation --region {{.AWS_REGION}} --command-id "$COMMAND_ID" --instance-id "{{.EC2_ID}}" --query "[StandardOutputContent,StandardErrorContent]" --output text
+      [ "$STATUS" = "Success" ] || exit 1
   cloud:status:
+    desc: Show the il-news-bot service status via SSM
     cmds:
       - vars:
-          COMMAND: systemctl status il-news-bot.service
-        task: cloud:ssh
+          COMMAND: systemctl status il-news-bot.service --no-pager
+        task: cloud:cmd
   cloud:logs:
-    cmds:
-      - vars:
-          COMMAND: journalctl -xefu il-news-bot.service
-        task: cloud:ssh
+    desc: Follow the il-news-bot service logs via SSM
+    vars:
+      EC2_ID:
+        sh: aws ec2 describe-instances --region {{.AWS_REGION}} --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output text
+    cmd: aws ssm start-session --region {{.AWS_REGION}} --target {{.EC2_ID}} --document-name AWS-StartInteractiveCommand --parameters '{"startCommand":["journalctl -xefu il-news-bot.service"]}'
 
   deploy:
     env:
@@ -45,8 +69,6 @@ tasks:
       TF_VAR_TELEGRAM_API_ID: "{{.TELEGRAM_API_ID}}"
       TF_VAR_TELEGRAM_API_HASH: "{{.TELEGRAM_API_HASH}}"
       TF_VAR_TELEGRAM_PHONE_NUMBER: "{{.TELEGRAM_PHONE_NUMBER}}"
-      TF_VAR_ssh_allowed_ip:
-        sh: curl -s https://checkip.amazonaws.com | tr -d "\n"
     cmd: tofu apply
   destroy:
     env:
@@ -55,6 +77,4 @@ tasks:
       TF_VAR_TELEGRAM_API_ID: "{{.TELEGRAM_API_ID}}"
       TF_VAR_TELEGRAM_API_HASH: "{{.TELEGRAM_API_HASH}}"
       TF_VAR_TELEGRAM_PHONE_NUMBER: "{{.TELEGRAM_PHONE_NUMBER}}"
-      TF_VAR_ssh_allowed_ip:
-        sh: curl -s https://checkip.amazonaws.com | tr -d "\n"
     cmd: tofu destroy
