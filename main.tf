@@ -62,13 +62,13 @@ data "aws_subnets" "default" {
 
 resource "aws_security_group" "news_agents" {
   name        = "il-news-bot-firewall"
-  description = "Firewall for il-news-bot"
+  description = "Firewall for il-news-bot (no ingress, HTTPS-only egress)"
 
   egress {
-    description      = "All outbound"
-    protocol         = "-1"
-    from_port        = 0
-    to_port          = 0
+    description      = "HTTPS outbound"
+    protocol         = "tcp"
+    from_port        = 443
+    to_port          = 443
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
@@ -116,6 +116,46 @@ data "aws_iam_policy_document" "artifacts_kms" {
       identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
     }
   }
+
+  statement {
+    sid       = "AllowVPCFlowLogDelivery"
+    effect    = "Allow"
+    actions   = ["kms:GenerateDataKey*"]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+
+  statement {
+    sid    = "AllowAutoScalingSLRCreateGrants"
+    effect = "Allow"
+    actions = [
+      "kms:CreateGrant",
+      "kms:ListGrants",
+      "kms:RevokeGrant",
+      "kms:GenerateDataKeyWithoutPlaintext",
+      "kms:DescribeKey",
+    ]
+    resources = ["*"]
+    principals {
+      type = "AWS"
+      identifiers = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
+      ]
+    }
+    condition {
+      test     = "StringLike"
+      variable = "aws:PrincipalArn"
+      values   = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"]
+    }
+  }
 }
 
 resource "aws_kms_key" "artifacts" {
@@ -143,18 +183,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
   rule {
     id     = "expire-old-deploy-versions"
     status = "Enabled"
+    filter { prefix = "deploy/" }
+    noncurrent_version_expiration { noncurrent_days = 3 }
+    abort_incomplete_multipart_upload { days_after_initiation = 1 }
+  }
 
-    filter {
-      prefix = "deploy/"
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = 30
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
+  rule {
+    id     = "expire-flow-logs"
+    status = "Enabled"
+    filter { prefix = "flow-logs/" }
+    expiration { days = 14 }
   }
 }
 
@@ -167,14 +205,16 @@ data "aws_iam_policy_document" "artifacts" {
       type        = "*"
       identifiers = ["*"]
     }
-    resources = [
-      aws_s3_bucket.artifacts.arn,
-      "${aws_s3_bucket.artifacts.arn}/*",
-    ]
+    resources = [aws_s3_bucket.artifacts.arn, "${aws_s3_bucket.artifacts.arn}/*"]
     condition {
       test     = "Bool"
       variable = "aws:SecureTransport"
       values   = ["false"]
+    }
+    condition {
+      test     = "ArnNotLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
     }
   }
 
@@ -186,16 +226,86 @@ data "aws_iam_policy_document" "artifacts" {
       type        = "*"
       identifiers = ["*"]
     }
-    resources = [
-      aws_s3_bucket.artifacts.arn,
-      "${aws_s3_bucket.artifacts.arn}/*",
-    ]
+    resources = [aws_s3_bucket.artifacts.arn, "${aws_s3_bucket.artifacts.arn}/*"]
     condition {
       test     = "StringNotEquals"
       variable = "aws:PrincipalAccount"
       values   = [data.aws_caller_identity.current.account_id]
     }
+    condition {
+      test     = "ArnNotLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+    }
   }
+
+  statement {
+    sid     = "AllowFlowLogAclCheck"
+    effect  = "Allow"
+    actions = ["s3:GetBucketAcl"]
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    resources = [aws_s3_bucket.artifacts.arn]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+    }
+  }
+
+  statement {
+    sid     = "DenyNonKMSUploads"
+    effect  = "Deny"
+    actions = ["s3:PutObject"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    resources = ["${aws_s3_bucket.artifacts.arn}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-server-side-encryption"
+      values   = ["AES256"]
+    }
+  }
+
+  statement {
+    sid     = "AllowVPCFlowLogsDelivery"
+    effect  = "Allow"
+    actions = ["s3:PutObject"]
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    resources = [
+      "${aws_s3_bucket.artifacts.arn}/flow-logs/AWSLogs/${data.aws_caller_identity.current.account_id}/*",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+    }
+  }
+}
+
+resource "aws_flow_log" "default_vpc" {
+  vpc_id                   = data.aws_vpc.default.id
+  traffic_type             = "ALL"
+  max_aggregation_interval = 60
+  log_destination_type     = "s3"
+  log_destination          = "${aws_s3_bucket.artifacts.arn}/flow-logs"
 }
 
 resource "aws_s3_bucket_policy" "artifacts" {
@@ -269,7 +379,18 @@ resource "aws_iam_role_policy" "ec2_instance_ssm" {
       {
         Effect   = "Allow"
         Action   = ["kms:Decrypt"]
-        Resource = [data.aws_kms_alias.ssm.target_key_arn, aws_kms_key.artifacts.arn]
+        Resource = [data.aws_kms_alias.ssm.target_key_arn]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:CreateGrant",
+          "kms:DescribeKey",
+          "kms:GenerateDataKey*",
+          "kms:ReEncrypt*",
+        ]
+        Resource = [aws_kms_key.artifacts.arn]
       }
     ]
   })
@@ -322,7 +443,11 @@ resource "aws_launch_template" "news_agents" {
     device_name = "/dev/xvda"
 
     ebs {
-      encrypted = true
+      volume_size           = 20
+      volume_type           = "gp3"
+      encrypted             = true
+      kms_key_id            = aws_kms_key.artifacts.arn
+      delete_on_termination = true
     }
   }
 
