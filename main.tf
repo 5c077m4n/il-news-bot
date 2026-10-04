@@ -552,6 +552,7 @@ resource "null_resource" "deploy" {
     command = <<-EOT
       set -euo pipefail
 
+      go mod tidy
       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -a -installsuffix cgo -o main .
       aws s3 cp --region ${var.aws_region} main s3://${aws_s3_bucket.artifacts.bucket}/deploy/main
       aws s3 cp --region ${var.aws_region} telegram_session.data s3://${aws_s3_bucket.artifacts.bucket}/deploy/telegram_session.data
