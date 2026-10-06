@@ -1,10 +1,8 @@
 package db
 
 import (
-	"context"
 	"fmt"
 	"hash/fnv"
-	"runtime"
 	"strings"
 	"time"
 
@@ -69,62 +67,4 @@ func from(result chromem.Result) Article {
 		Link:        result.Metadata["link"],
 		PublishedAt: publishedAt,
 	}
-}
-
-func QueryArticles(
-	ctx context.Context,
-	query string,
-	limit int,
-	where map[string]string,
-) ([]Article, error) {
-	instance, err := database()
-	if err != nil {
-		return nil, err
-	}
-
-	count := instance.articles.Count()
-	if count == 0 {
-		return nil, nil
-	}
-
-	results, err := instance.articles.Query(ctx, query, min(limit, count), where, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	articles := make([]Article, 0, len(results))
-	for _, result := range results {
-		articles = append(articles, from(result))
-	}
-
-	return articles, nil
-}
-
-func SaveArticles(ctx context.Context, items []Article) error {
-	if len(items) == 0 {
-		return nil
-	}
-
-	instance, err := database()
-	if err != nil {
-		return err
-	}
-
-	documents := make([]chromem.Document, 0, len(items))
-	for _, item := range items {
-		content := item.content()
-		if content == "" {
-			continue
-		}
-		documents = append(documents, chromem.Document{
-			ID:       item.id(),
-			Metadata: item.metadata(),
-			Content:  content,
-		})
-	}
-	if len(documents) == 0 {
-		return nil
-	}
-
-	return instance.articles.AddDocuments(ctx, documents, runtime.NumCPU())
 }

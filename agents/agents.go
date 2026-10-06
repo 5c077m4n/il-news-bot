@@ -5,10 +5,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/5c077m4n/il-news-bot/db"
 	"golang.org/x/sync/errgroup"
 )
 
-func GetNews(prompt string) (*AnchorResponse, error) {
+func GetNews(database *db.Database, prompt string) (*AnchorResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
@@ -22,7 +23,7 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 
 	errGroup, errGroupCtx := errgroup.WithContext(ctx)
 	errGroup.Go(func() error {
-		resp, err := lefty(errGroupCtx, prompt)
+		resp, err := lefty(errGroupCtx, database, prompt)
 		if err != nil {
 			return err
 		}
@@ -31,7 +32,7 @@ func GetNews(prompt string) (*AnchorResponse, error) {
 		return nil
 	})
 	errGroup.Go(func() error {
-		resp, err := righty(errGroupCtx, prompt)
+		resp, err := righty(errGroupCtx, database, prompt)
 		if err != nil {
 			return err
 		}

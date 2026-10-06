@@ -15,52 +15,43 @@ const (
 	retention       = 48 * time.Hour
 )
 
-var (
-	GetIsrealHayom = getRSSFeed(
+var allSources = map[string]func(*db.Database, context.Context) ([]db.Article, error){
+	"Israel Hayom": getRSSFeed(
 		"Israel Hayom",
 		db.LeanRight,
 		"https://www.israelhayom.co.il/rss.xml",
-	)
-	GetYNet = getRSSFeed(
+	),
+	"YNet": getRSSFeed(
 		"YNet",
 		db.LeanLeft,
 		"https://www.ynet.co.il/Integration/StoryRss2.xml",
-	)
-	GetJPost = getRSSFeed(
+	),
+	"JPost": getRSSFeed(
 		"JPost",
 		db.LeanRight,
 		"https://www.jpost.com/rss/rssfeedsfrontpage.aspx",
-	)
-	GetMakorRishon = getRSSFeed(
+	),
+	"Makor Rishon": getRSSFeed(
 		"Makor Rishon",
 		db.LeanRight,
 		"https://www.makorrishon.co.il/feed/",
-	)
-	GetCyberNews = getRSSFeed(
+	),
+	"Cyber News": getRSSFeed(
 		"Cyber News",
 		db.LeanNeutral,
 		"https://rss.app/feeds/Ho4glVhEXQwiloOx.xml",
-	)
-	GetAbuAliExpress = getChannelFeed("Abu Ali Express", db.LeanRight, "@abualiexpress")
-)
-
-var allSources = map[string]func(context.Context) ([]db.Article, error){
-	"Israel Hayom":    GetIsrealHayom,
-	"YNet":            GetYNet,
-	"JPost":           GetJPost,
-	"Makor Rishon":    GetMakorRishon,
-	"Cyber News":      GetCyberNews,
-	"Abu Ali Express": GetAbuAliExpress,
+	),
+	"Abu Ali Express": getChannelFeed("Abu Ali Express", db.LeanRight, "@abualiexpress"),
 }
 
-func refresh(ctx context.Context) {
+func refresh(ctx context.Context, database *db.Database) {
 	start := time.Now()
 	defer func() {
 		slog.Info("fetching data sources done", "elapsed", time.Since(start))
 	}()
 
 	for name, getter := range allSources {
-		if _, err := getter(ctx); err != nil {
+		if _, err := getter(database, ctx); err != nil {
 			slog.WarnContext(
 				ctx,
 				"could not refresh data source",
@@ -71,7 +62,7 @@ func refresh(ctx context.Context) {
 	}
 }
 
-func Cleanup(ctx context.Context) {
+func Cleanup(ctx context.Context, database *db.Database) {
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 
@@ -80,7 +71,7 @@ func Cleanup(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			removed, err := db.DeleteOldArticles(ctx, retention)
+			removed, err := database.DeleteOldArticles(ctx, retention)
 			if err != nil {
 				slog.WarnContext(
 					ctx,
@@ -98,8 +89,8 @@ func Cleanup(ctx context.Context) {
 	}
 }
 
-func Poll(ctx context.Context) {
-	refresh(ctx)
+func Poll(ctx context.Context, database *db.Database) {
+	refresh(ctx, database)
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
@@ -109,7 +100,7 @@ func Poll(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			refresh(ctx)
+			refresh(ctx, database)
 		}
 	}
 }

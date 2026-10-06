@@ -30,10 +30,11 @@ func articlesMessage(articles []db.Article) components.ChatMessages {
 
 func anchorArticles(
 	ctx context.Context,
+	database *db.Database,
 	prompt string,
 	lean db.Lean,
 ) ([]components.ChatMessages, error) {
-	articles, err := db.QueryArticles(
+	articles, err := database.QueryArticles(
 		ctx,
 		prompt,
 		articlesPerAnchor,
@@ -50,8 +51,8 @@ func anchorArticles(
 	return messages, nil
 }
 
-func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	messages, err := anchorArticles(ctx, prompt, db.LeanLeft)
+func lefty(ctx context.Context, database *db.Database, prompt string) (*AnchorResponse, error) {
+	messages, err := anchorArticles(ctx, database, prompt, db.LeanLeft)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +82,8 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 	return response, nil
 }
 
-func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	messages, err := anchorArticles(ctx, prompt, db.LeanRight)
+func righty(ctx context.Context, database *db.Database, prompt string) (*AnchorResponse, error) {
+	messages, err := anchorArticles(ctx, database, prompt, db.LeanRight)
 	if err != nil {
 		return nil, err
 	}

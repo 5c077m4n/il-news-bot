@@ -6,11 +6,24 @@ import (
 	"time"
 )
 
-func TestSaveArticles(t *testing.T) {
-	directory = t.TempDir()
-	embeddingFunc = func(context.Context, string) ([]float32, error) {
-		return []float32{1}, nil
+func newTestDatabase(t *testing.T) *Database {
+	t.Helper()
+
+	database, err := New(
+		t.TempDir(),
+		func(context.Context, string) ([]float32, error) {
+			return []float32{1}, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("new database: %v", err)
 	}
+
+	return database
+}
+
+func TestSaveArticles(t *testing.T) {
+	database := newTestDatabase(t)
 
 	ctx := context.Background()
 	items := []Article{
@@ -29,16 +42,11 @@ func TestSaveArticles(t *testing.T) {
 		},
 	}
 
-	if err := SaveArticles(ctx, items); err != nil {
+	if err := database.SaveArticles(ctx, items); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	instance, err := database()
-	if err != nil {
-		t.Fatalf("database: %v", err)
-	}
-
-	doc, err := instance.articles.GetByID(ctx, "https://example.com/1")
+	doc, err := database.articles.GetByID(ctx, "https://example.com/1")
 	if err != nil {
 		t.Fatalf("get by link id: %v", err)
 	}
@@ -49,7 +57,7 @@ func TestSaveArticles(t *testing.T) {
 		t.Errorf("got metadata %v, want source YNet and lean left", doc.Metadata)
 	}
 
-	doc, err = instance.articles.GetByID(ctx, items[1].id())
+	doc, err = database.articles.GetByID(ctx, items[1].id())
 	if err != nil {
 		t.Fatalf("get by fallback id: %v", err)
 	}
@@ -59,10 +67,7 @@ func TestSaveArticles(t *testing.T) {
 }
 
 func TestQueryArticles(t *testing.T) {
-	directory = t.TempDir()
-	embeddingFunc = func(context.Context, string) ([]float32, error) {
-		return []float32{1}, nil
-	}
+	database := newTestDatabase(t)
 
 	ctx := context.Background()
 	leftLean := Lean("test-left")
@@ -89,11 +94,11 @@ func TestQueryArticles(t *testing.T) {
 		},
 	}
 
-	if err := SaveArticles(ctx, items); err != nil {
+	if err := database.SaveArticles(ctx, items); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	articles, err := QueryArticles(
+	articles, err := database.QueryArticles(
 		ctx,
 		"anything",
 		10,
@@ -125,10 +130,7 @@ func TestQueryArticles(t *testing.T) {
 }
 
 func TestDeleteOldArticles(t *testing.T) {
-	directory = t.TempDir()
-	embeddingFunc = func(context.Context, string) ([]float32, error) {
-		return []float32{1}, nil
-	}
+	database := newTestDatabase(t)
 
 	ctx := context.Background()
 	now := time.Now()
@@ -151,11 +153,11 @@ func TestDeleteOldArticles(t *testing.T) {
 		},
 	}
 
-	if err := SaveArticles(ctx, items); err != nil {
+	if err := database.SaveArticles(ctx, items); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
-	removed, err := DeleteOldArticles(ctx, 48*time.Hour)
+	removed, err := database.DeleteOldArticles(ctx, 48*time.Hour)
 	if err != nil {
 		t.Fatalf("delete old: %v", err)
 	}
@@ -163,15 +165,10 @@ func TestDeleteOldArticles(t *testing.T) {
 		t.Fatalf("got %d removed articles, want at least 1", removed)
 	}
 
-	instance, err := database()
-	if err != nil {
-		t.Fatalf("database: %v", err)
-	}
-
-	if _, err := instance.articles.GetByID(ctx, "https://example.com/old"); err == nil {
+	if _, err := database.articles.GetByID(ctx, "https://example.com/old"); err == nil {
 		t.Errorf("old article was not removed")
 	}
-	if _, err := instance.articles.GetByID(ctx, "https://example.com/new"); err != nil {
+	if _, err := database.articles.GetByID(ctx, "https://example.com/new"); err != nil {
 		t.Errorf("recent article was removed: %v", err)
 	}
 }

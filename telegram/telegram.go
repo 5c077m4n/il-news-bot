@@ -7,17 +7,18 @@ import (
 	"strings"
 
 	"github.com/5c077m4n/il-news-bot/agents"
+	"github.com/5c077m4n/il-news-bot/db"
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-func handleNewsRequest(message *telegram.NewMessage, prompt string) error {
+func handleNewsRequest(database *db.Database, message *telegram.NewMessage, prompt string) error {
 	if _, err := message.Reply(
 		"Fetching news...",
 	); err != nil {
 		slog.Error("could not send message", slog.String("error", err.Error()))
 	}
 
-	response, err := agents.GetNews(prompt)
+	response, err := agents.GetNews(database, prompt)
 	if err != nil {
 		if _, err := message.Reply(
 			"Sorry, couldn't fetch your news just now...",
@@ -40,13 +41,13 @@ func handleNewsRequest(message *telegram.NewMessage, prompt string) error {
 	return nil
 }
 
-func handleMessage(message *telegram.NewMessage) error {
+func handleMessage(database *db.Database, message *telegram.NewMessage) error {
 	command, args, _ := strings.Cut(strings.TrimSpace(message.Text()), " ")
 	args = strings.TrimSpace(args)
 
 	switch command {
 	case "/start":
-		return handleNewsRequest(message, "Please get me the lastest news")
+		return handleNewsRequest(database, message, "Please get me the lastest news")
 	case "/subject":
 		if args == "" {
 			if _, err := message.Reply(
@@ -57,6 +58,7 @@ func handleMessage(message *telegram.NewMessage) error {
 			return nil
 		}
 		return handleNewsRequest(
+			database,
 			message,
 			fmt.Sprintf("Please get me the lastest news about %s", args),
 		)
@@ -64,13 +66,15 @@ func handleMessage(message *telegram.NewMessage) error {
 	return nil
 }
 
-func Run() error {
+func Run(database *db.Database) error {
 	client, err := getBotClient()
 	if err != nil {
 		return err
 	}
 
-	client.On(telegram.OnMessage, handleMessage)
+	client.On(telegram.OnMessage, func(message *telegram.NewMessage) error {
+		return handleMessage(database, message)
+	})
 	if _, err := client.BotsSetBotCommands(
 		&telegram.BotCommandScopeDefault{},
 		"en",

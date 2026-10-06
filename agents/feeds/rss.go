@@ -13,8 +13,8 @@ func getRSSFeed(
 	source string,
 	lean db.Lean,
 	url string,
-) func(context.Context) ([]db.Article, error) {
-	return func(ctx context.Context) ([]db.Article, error) {
+) func(*db.Database, context.Context) ([]db.Article, error) {
+	return func(database *db.Database, ctx context.Context) ([]db.Article, error) {
 		parserCtx, parserCancel := context.WithTimeout(ctx, 10*time.Second)
 		defer parserCancel()
 
@@ -40,7 +40,7 @@ func getRSSFeed(
 			})
 		}
 
-		if err := db.SaveArticles(ctx, articles); err != nil {
+		if err := database.SaveArticles(ctx, articles); err != nil {
 			slog.WarnContext(
 				ctx,
 				"could not save articles",

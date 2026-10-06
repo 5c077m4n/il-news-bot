@@ -12,8 +12,8 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-func getChannelFeed(source string, lean db.Lean, channelHandle string) func(context.Context) ([]db.Article, error) {
-	return func(ctx context.Context) ([]db.Article, error) {
+func getChannelFeed(source string, lean db.Lean, channelHandle string) func(*db.Database, context.Context) ([]db.Article, error) {
+	return func(database *db.Database, ctx context.Context) ([]db.Article, error) {
 		appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 		if err != nil {
 			return nil, err
@@ -59,7 +59,7 @@ func getChannelFeed(source string, lean db.Lean, channelHandle string) func(cont
 			})
 		}
 
-		if err := db.SaveArticles(ctx, articles); err != nil {
+		if err := database.SaveArticles(ctx, articles); err != nil {
 			slog.WarnContext(
 				ctx,
 				"could not save articles",
