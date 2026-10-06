@@ -2,71 +2,40 @@ package db
 
 import (
 	"context"
-	"log/slog"
+	"os"
 	"sync"
-	"time"
 
-	"github.com/cockroachdb/pebble"
-	"github.com/goccy/go-json"
+	"github.com/philippgille/chromem-go"
 )
 
-var db = sync.OnceValues(func() (*pebble.DB, error) {
-	db, err := pebble.Open("pebble_data", &pebble.Options{})
+const openRouterBaseURL = "https://openrouter.ai/api/v1"
+const embeddingModel = "openai/text-embedding-3-small"
+
+var directory = "chromem_data"
+
+var embeddingFunc chromem.EmbeddingFunc = func(ctx context.Context, text string) ([]float32, error) {
+	return chromem.NewEmbeddingFuncOpenAICompat(
+		openRouterBaseURL,
+		os.Getenv("OPENROUTER_API_KEY"),
+		embeddingModel,
+		new(true),
+	)(ctx, text)
+}
+
+type Database struct {
+	articles *chromem.Collection
+}
+
+var database = sync.OnceValues(func() (*Database, error) {
+	instance, err := chromem.NewPersistentDB(directory, false)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	articles, err := instance.GetOrCreateCollection("articles", nil, embeddingFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Database{articles: articles}, nil
 })
-
-type entry[T any] struct {
-	CreatedAt time.Time `json:"createdAt"`
-	Value     T         `json:"value"`
-}
-
-func Get[T any](ctx context.Context, key []byte) (*T, time.Time, error) {
-	var zero time.Time
-
-	db, err := db()
-	if err != nil {
-		return nil, zero, err
-	}
-
-	value, closer, err := db.Get(key)
-	if err != nil {
-		return nil, zero, err
-	}
-	defer func() {
-		if err := closer.Close(); err != nil {
-			slog.ErrorContext(
-				ctx,
-				"could not close PebbleDB instance",
-				slog.String("error", err.Error()),
-			)
-		}
-	}()
-
-	var record entry[T]
-	if err := json.UnmarshalContext(ctx, value, &record); err != nil {
-		return nil, zero, err
-	}
-
-	return &record.Value, record.CreatedAt, nil
-}
-
-func Set[T any](ctx context.Context, key []byte, value T) error {
-	db, err := db()
-	if err != nil {
-		return err
-	}
-
-	encoded, err := json.MarshalContext(ctx, entry[T]{
-		CreatedAt: time.Now(),
-		Value:     value,
-	})
-	if err != nil {
-		return err
-	}
-
-	return db.Set(key, encoded, pebble.Sync)
-}

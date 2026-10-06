@@ -48,7 +48,7 @@ terraform.rc
 tmp/
 
 ## Session data
-pebble_data/
+chromem_data/
 session.data
 *_session.data
 *.db

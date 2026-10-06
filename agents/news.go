@@ -4,41 +4,56 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
+	"strings"
 
-	"github.com/5c077m4n/il-news-bot/agents/feeds"
+	"github.com/5c077m4n/il-news-bot/db"
 	"github.com/OpenRouterTeam/go-sdk/models/components"
 )
 
-var leftNews = map[string]func(context.Context) (string, error){
-	"YNet": feeds.GetYNet,
+const articlesPerAnchor = 20
+
+func articlesMessage(articles []db.Article) components.ChatMessages {
+	var contentBuilder strings.Builder
+	contentBuilder.WriteString("Articles from our news sources:")
+	for _, article := range articles {
+		fmt.Fprintf(
+			&contentBuilder,
+			"\n- %s\n%s\n%s (%s)",
+			article.Title,
+			article.Description,
+			article.Link,
+			article.Source,
+		)
+	}
+	return systemMessage(contentBuilder.String())
+}
+
+func anchorArticles(
+	ctx context.Context,
+	prompt string,
+	lean db.Lean,
+) ([]components.ChatMessages, error) {
+	articles, err := db.QueryArticles(
+		ctx,
+		prompt,
+		articlesPerAnchor,
+		map[string]string{"lean": string(lean)},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	messages := []components.ChatMessages{}
+	if len(articles) > 0 {
+		messages = append(messages, articlesMessage(articles))
+	}
+	return messages, nil
 }
 
 func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	sources := map[string]string{}
-
-	var wg sync.WaitGroup
-	for name, getter := range leftNews {
-		wg.Go(func() {
-			feed, err := getter(ctx)
-			if err != nil {
-				slog.WarnContext(
-					ctx,
-					"could not fetch data source",
-					slog.String("source", name),
-					slog.Any("error", err),
-				)
-				return
-			}
-			sources[name] = feed
-		})
-	}
-	wg.Wait()
-
-	messages := []components.ChatMessages{}
-	for name, content := range sources {
-		newMessage := systemMessage(fmt.Sprintf("%s articles: %s", name, content))
-		messages = append(messages, newMessage)
+	messages, err := anchorArticles(ctx, prompt, db.LeanLeft)
+	if err != nil {
+		return nil, err
 	}
 	messages = append(messages, userMessage(prompt))
 	response, err := llmQuery[AnchorResponse](
@@ -66,37 +81,10 @@ func lefty(ctx context.Context, prompt string) (*AnchorResponse, error) {
 	return response, nil
 }
 
-var rightNews = map[string]func(context.Context) (string, error){
-	"Israel Hayom":    feeds.GetIsrealHayom,
-	"JPost":           feeds.GetJPost,
-	"Abu Ali Express": feeds.GetAbuAliExpress,
-}
-
 func righty(ctx context.Context, prompt string) (*AnchorResponse, error) {
-	sources := map[string]string{}
-
-	var wg sync.WaitGroup
-	for name, getter := range rightNews {
-		wg.Go(func() {
-			feed, err := getter(ctx)
-			if err != nil {
-				slog.WarnContext(
-					ctx,
-					"could not fetch data source",
-					slog.String("source", name),
-					slog.Any("error", err),
-				)
-				return
-			}
-			sources[name] = feed
-		})
-	}
-	wg.Wait()
-
-	messages := []components.ChatMessages{}
-	for name, content := range sources {
-		newMessage := systemMessage(fmt.Sprintf("%s articles: %s", name, content))
-		messages = append(messages, newMessage)
+	messages, err := anchorArticles(ctx, prompt, db.LeanRight)
+	if err != nil {
+		return nil, err
 	}
 	messages = append(messages, userMessage(prompt))
 

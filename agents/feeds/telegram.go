@@ -7,24 +7,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/5c077m4n/il-news-bot/db"
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-func getChannelFeed(channelHandle string) func(context.Context) (string, error) {
-	return func(ctx context.Context) (string, error) {
-		key := fmt.Appendf(nil, "telegram:%s", channelHandle)
-		if cached, createdAt, err := db.Get[[]string](ctx, key); err == nil {
-			if time.Since(createdAt) < time.Hour {
-				return strings.Join(*cached, "\n"), nil
-			}
-		}
-
+func getChannelFeed(source string, lean db.Lean, channelHandle string) func(context.Context) ([]db.Article, error) {
+	return func(ctx context.Context) ([]db.Article, error) {
 		appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		client, err := telegram.NewClient(telegram.ClientConfig{
@@ -34,11 +26,11 @@ func getChannelFeed(channelHandle string) func(context.Context) (string, error) 
 			Session:  "telegram_session.data",
 		})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if _, err := client.Login(os.Getenv("TELEGRAM_PHONE_NUMBER")); err != nil {
-			return "", err
+			return nil, err
 		}
 
 		messages, err := client.GetMessages(
@@ -46,23 +38,36 @@ func getChannelFeed(channelHandle string) func(context.Context) (string, error) 
 			&telegram.SearchOption{Context: ctx, Limit: 70},
 		)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		results := make([]string, 0, len(messages))
+		articles := make([]db.Article, 0, len(messages))
 		for _, msg := range messages {
-			results = append(results, msg.Text())
+			text := msg.Text()
+			if text == "" {
+				continue
+			}
+			articles = append(articles, db.Article{
+				Source:      source,
+				Lean:        lean,
+				Description: text,
+				Link: fmt.Sprintf(
+					"https://t.me/%s/%d",
+					strings.TrimPrefix(channelHandle, "@"),
+					msg.ID,
+				),
+			})
 		}
 
-		if err := db.Set(ctx, key, results); err != nil {
+		if err := db.SaveArticles(ctx, articles); err != nil {
 			slog.WarnContext(
 				ctx,
-				"could not set value in cache",
-				slog.String("key", string(key)),
-				slog.String("error", err.Error()),
+				"could not save articles",
+				slog.String("source", source),
+				slog.Any("error", err),
 			)
 		}
 
-		return strings.Join(results, "\n"), nil
+		return articles, nil
 	}
 }
