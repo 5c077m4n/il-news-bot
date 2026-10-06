@@ -9,7 +9,11 @@ import (
 	"github.com/5c077m4n/il-news-bot/db"
 )
 
-const pollInterval = 15 * time.Minute
+const (
+	pollInterval    = 15 * time.Minute
+	cleanupInterval = time.Hour
+	retention       = 48 * time.Hour
+)
 
 var (
 	GetIsrealHayom = getRSSFeed(
@@ -62,6 +66,33 @@ func refresh(ctx context.Context) {
 				"could not refresh data source",
 				slog.String("source", name),
 				slog.Any("error", err),
+			)
+		}
+	}
+}
+
+func Cleanup(ctx context.Context) {
+	ticker := time.NewTicker(cleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			removed, err := db.DeleteOldArticles(ctx, retention)
+			if err != nil {
+				slog.WarnContext(
+					ctx,
+					"could not remove old articles",
+					slog.Any("error", err),
+				)
+				continue
+			}
+			slog.InfoContext(
+				ctx,
+				"removed old articles",
+				slog.Int("removed", removed),
 			)
 		}
 	}

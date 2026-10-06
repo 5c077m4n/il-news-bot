@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestSaveArticles(t *testing.T) {
@@ -120,5 +121,57 @@ func TestQueryArticles(t *testing.T) {
 	if ynet.Title != "T1" || ynet.Description != "D1" ||
 		ynet.Link != "https://example.com/1" {
 		t.Errorf("got reconstructed article %+v, want the YNet item", *ynet)
+	}
+}
+
+func TestDeleteOldArticles(t *testing.T) {
+	directory = t.TempDir()
+	embeddingFunc = func(context.Context, string) ([]float32, error) {
+		return []float32{1}, nil
+	}
+
+	ctx := context.Background()
+	now := time.Now()
+	items := []Article{
+		{
+			Source:      "YNet",
+			Lean:        LeanNeutral,
+			Title:       "Old",
+			Description: "Old",
+			Link:        "https://example.com/old",
+			PublishedAt: now.Add(-3 * 24 * time.Hour),
+		},
+		{
+			Source:      "JPost",
+			Lean:        LeanNeutral,
+			Title:       "New",
+			Description: "New",
+			Link:        "https://example.com/new",
+			PublishedAt: now.Add(-time.Hour),
+		},
+	}
+
+	if err := SaveArticles(ctx, items); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	removed, err := DeleteOldArticles(ctx, 48*time.Hour)
+	if err != nil {
+		t.Fatalf("delete old: %v", err)
+	}
+	if removed == 0 {
+		t.Fatalf("got %d removed articles, want at least 1", removed)
+	}
+
+	instance, err := database()
+	if err != nil {
+		t.Fatalf("database: %v", err)
+	}
+
+	if _, err := instance.articles.GetByID(ctx, "https://example.com/old"); err == nil {
+		t.Errorf("old article was not removed")
+	}
+	if _, err := instance.articles.GetByID(ctx, "https://example.com/new"); err != nil {
+		t.Errorf("recent article was removed: %v", err)
 	}
 }

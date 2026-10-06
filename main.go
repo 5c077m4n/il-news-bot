@@ -10,6 +10,7 @@ import (
 
 func main() {
 	go feeds.Poll(context.Background())
+	go feeds.Cleanup(context.Background())
 
 	if err := telegram.Run(); err != nil {
 		panic(err)
