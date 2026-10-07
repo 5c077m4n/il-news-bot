@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/5c077m4n/il-news-bot/db"
-	"golang.org/x/sync/errgroup"
 )
 
 func GetNews(database *db.Database, prompt string) (*AnchorResponse, error) {
@@ -19,40 +18,10 @@ func GetNews(database *db.Database, prompt string) (*AnchorResponse, error) {
 	}
 	slog.InfoContext(ctx, "detected prompt language", slog.String("language", language))
 
-	var leftResponse, rightResponse *AnchorResponse
-
-	errGroup, errGroupCtx := errgroup.WithContext(ctx)
-	errGroup.Go(func() error {
-		resp, err := lefty(errGroupCtx, database, prompt)
-		if err != nil {
-			return err
-		}
-
-		leftResponse = resp
-		return nil
-	})
-	errGroup.Go(func() error {
-		resp, err := righty(errGroupCtx, database, prompt)
-		if err != nil {
-			return err
-		}
-
-		rightResponse = resp
-		return nil
-	})
-
-	if err := errGroup.Wait(); err != nil {
-		slog.WarnContext(
-			ctx,
-			"failed to fetch articles in parallel",
-			slog.String("error", err.Error()),
-		)
-	}
-
-	accu, err := accumilator(ctx, language, leftResponse, rightResponse)
+	response, err := anchor(ctx, database, prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	return accu, nil
+	return factChecker(ctx, language, response)
 }

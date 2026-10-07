@@ -11,7 +11,6 @@ import (
 
 func getRSSFeed(
 	source string,
-	lean db.Lean,
 	url string,
 ) func(*db.Database, context.Context) ([]db.Article, error) {
 	return func(database *db.Database, ctx context.Context) ([]db.Article, error) {
@@ -32,7 +31,6 @@ func getRSSFeed(
 			}
 			articles = append(articles, db.Article{
 				Source:      source,
-				Lean:        lean,
 				Title:       item.Title,
 				Description: description,
 				Link:        item.Link,

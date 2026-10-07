@@ -16,32 +16,14 @@ const (
 )
 
 var allSources = map[string]func(*db.Database, context.Context) ([]db.Article, error){
-	"Israel Hayom": getRSSFeed(
-		"Israel Hayom",
-		db.LeanRight,
-		"https://www.israelhayom.co.il/rss.xml",
-	),
-	"YNet": getRSSFeed(
-		"YNet",
-		db.LeanLeft,
-		"https://www.ynet.co.il/Integration/StoryRss2.xml",
-	),
-	"JPost": getRSSFeed(
-		"JPost",
-		db.LeanRight,
-		"https://www.jpost.com/rss/rssfeedsfrontpage.aspx",
-	),
-	"Makor Rishon": getRSSFeed(
-		"Makor Rishon",
-		db.LeanRight,
-		"https://www.makorrishon.co.il/feed/",
-	),
-	"Cyber News": getRSSFeed(
-		"Cyber News",
-		db.LeanNeutral,
-		"https://rss.app/feeds/Ho4glVhEXQwiloOx.xml",
-	),
-	"Abu Ali Express": getChannelFeed("Abu Ali Express", db.LeanRight, "@abualiexpress"),
+	"Israel Hayom":     getRSSFeed("Israel Hayom", "https://www.israelhayom.co.il/rss.xml"),
+	"YNet":             getRSSFeed("YNet", "https://www.ynet.co.il/Integration/StoryRss2.xml"),
+	"JPost":            getRSSFeed("JPost", "https://www.jpost.com/rss/rssfeedsfrontpage.aspx"),
+	"Cyber News":       getChannelFeed("Cyber News", "@CyberSecurityIL"),
+	"Abu Ali Express":  getChannelFeed("Abu Ali Express", "@abualiexpress"),
+	"Hacker News Feed": getChannelFeed("Hacker News Feed", "@hacker_news_feed"),
+	"Amit Segal":       getChannelFeed("Amit Segal", "@hacker_news_feed"),
+	"Lobsters":         getChannelFeed("Lobsters", "@lobste_rs"),
 }
 
 func refresh(ctx context.Context, database *db.Database) {
@@ -63,6 +45,11 @@ func refresh(ctx context.Context, database *db.Database) {
 }
 
 func Cleanup(ctx context.Context, database *db.Database) {
+	start := time.Now()
+	defer func() {
+		slog.Info("DB cleanup done", "elapsed", time.Since(start))
+	}()
+
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 

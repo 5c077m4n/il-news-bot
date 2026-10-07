@@ -9,17 +9,8 @@ import (
 	"github.com/philippgille/chromem-go"
 )
 
-type Lean string
-
-const (
-	LeanLeft    Lean = "left"
-	LeanRight   Lean = "right"
-	LeanNeutral Lean = "neutral"
-)
-
 type Article struct {
 	Source      string    `json:"source"`
-	Lean        Lean      `json:"lean"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Link        string    `json:"link"`
@@ -45,7 +36,6 @@ func (a Article) id() string {
 func (a Article) metadata() map[string]string {
 	return map[string]string{
 		"source":      a.Source,
-		"lean":        string(a.Lean),
 		"title":       a.Title,
 		"description": a.Description,
 		"link":        a.Link,
@@ -61,7 +51,6 @@ func from(result chromem.Result) Article {
 
 	return Article{
 		Source:      result.Metadata["source"],
-		Lean:        Lean(result.Metadata["lean"]),
 		Title:       result.Metadata["title"],
 		Description: result.Metadata["description"],
 		Link:        result.Metadata["link"],

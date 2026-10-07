@@ -30,14 +30,12 @@ func TestSaveArticles(t *testing.T) {
 	items := []Article{
 		{
 			Source:      "YNet",
-			Lean:        LeanLeft,
 			Title:       "T1",
 			Description: "D1",
 			Link:        "https://example.com/1",
 		},
 		{
 			Source:      "JPost",
-			Lean:        LeanRight,
 			Title:       "T2",
 			Description: "D2",
 		},
@@ -49,7 +47,6 @@ func TestSaveArticles(t *testing.T) {
 	require.NoError(t, err, "get by link id")
 	assert.Equal(t, "T1\nD1", doc.Content)
 	assert.Equal(t, "YNet", doc.Metadata["source"])
-	assert.Equal(t, "left", doc.Metadata["lean"])
 
 	doc, err = database.articles.GetByID(ctx, items[1].id())
 	require.NoError(t, err, "get by fallback id")
@@ -60,25 +57,21 @@ func TestQueryArticles(t *testing.T) {
 	database := newTestDatabase(t)
 
 	ctx := context.Background()
-	leftLean := Lean("test-left")
 	items := []Article{
 		{
 			Source:      "YNet",
-			Lean:        leftLean,
 			Title:       "T1",
 			Description: "D1",
 			Link:        "https://example.com/1",
 		},
 		{
 			Source:      "JPost",
-			Lean:        Lean("test-right"),
 			Title:       "T2",
 			Description: "D2",
 			Link:        "https://example.com/2",
 		},
 		{
 			Source:      "Haaretz",
-			Lean:        leftLean,
 			Title:       "T3",
 			Description: "D3",
 		},
@@ -90,22 +83,14 @@ func TestQueryArticles(t *testing.T) {
 		ctx,
 		"anything",
 		10,
-		map[string]string{"lean": string(leftLean)},
+		map[string]string{"source": "YNet"},
 	)
 	require.NoError(t, err, "query")
 
-	require.Len(t, articles, 2)
-	var ynet *Article
-	for i, article := range articles {
-		assert.Equal(t, leftLean, article.Lean)
-		if article.Source == "YNet" {
-			ynet = &articles[i]
-		}
-	}
-	require.NotNil(t, ynet, "YNet article not found in results")
-	assert.Equal(t, "T1", ynet.Title)
-	assert.Equal(t, "D1", ynet.Description)
-	assert.Equal(t, "https://example.com/1", ynet.Link)
+	require.Len(t, articles, 1)
+	assert.Equal(t, "T1", articles[0].Title)
+	assert.Equal(t, "D1", articles[0].Description)
+	assert.Equal(t, "https://example.com/1", articles[0].Link)
 }
 
 func TestDeleteOldArticles(t *testing.T) {
@@ -116,7 +101,6 @@ func TestDeleteOldArticles(t *testing.T) {
 	items := []Article{
 		{
 			Source:      "YNet",
-			Lean:        LeanNeutral,
 			Title:       "Old",
 			Description: "Old",
 			Link:        "https://example.com/old",
@@ -124,7 +108,6 @@ func TestDeleteOldArticles(t *testing.T) {
 		},
 		{
 			Source:      "JPost",
-			Lean:        LeanNeutral,
 			Title:       "New",
 			Description: "New",
 			Link:        "https://example.com/new",

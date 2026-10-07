@@ -11,7 +11,6 @@ require (
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/philippgille/chromem-go v0.7.0
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/sync v0.16.0
 )
 
 require (

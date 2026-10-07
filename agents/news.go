@@ -32,14 +32,8 @@ func anchorArticles(
 	ctx context.Context,
 	database *db.Database,
 	prompt string,
-	lean db.Lean,
 ) ([]components.ChatMessages, error) {
-	articles, err := database.QueryArticles(
-		ctx,
-		prompt,
-		articlesPerAnchor,
-		map[string]string{"lean": string(lean)},
-	)
+	articles, err := database.QueryArticles(ctx, prompt, articlesPerAnchor, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +45,8 @@ func anchorArticles(
 	return messages, nil
 }
 
-func lefty(ctx context.Context, database *db.Database, prompt string) (*AnchorResponse, error) {
-	messages, err := anchorArticles(ctx, database, prompt, db.LeanLeft)
+func anchor(ctx context.Context, database *db.Database, prompt string) (*AnchorResponse, error) {
+	messages, err := anchorArticles(ctx, database, prompt)
 	if err != nil {
 		return nil, err
 	}
@@ -60,68 +54,30 @@ func lefty(ctx context.Context, database *db.Database, prompt string) (*AnchorRe
 	response, err := llmQuery[AnchorResponse](
 		ctx,
 		systemMessage(`
-			Act as a progressive news anchor who is principled, calm,
-			and meticulous.
-			Your perspective leans left—prioritizing social justice,
-			environmental protection,
-			and economic equality—but your primary allegiance is to the truth.
-			Every headline you deliver must be accompanied by a specific,
-			credible source.
-			Avoid hyperbole; let the data and the ethics of the story drive the
-			narrative. Your tone is professional, empathetic, and intellectually
-			rigorous.
-			**Do not** send a headline without at least one link to the original source (the more souces the better).
+			Act as a principled news anchor who is calm and meticulous.
+			Your tone is professional, neutral, and analytical.
+			Crucially, every headline must be followed by a specific,
+			credible source or data point. Avoid hyperbole; let the data
+			drive the narrative while maintaining strict journalistic
+			integrity and factual accuracy.
+			**Do not** send a headline without at least one link to the original source (the more sources the better).
 		`),
 		messages...,
 	)
 	if err != nil {
 		return nil, err
 	}
-	slog.InfoContext(ctx, "fetched left news successfully", slog.Any("response", response))
+	slog.InfoContext(ctx, "fetched news successfully", slog.Any("response", response))
 
 	return response, nil
 }
 
-func righty(ctx context.Context, database *db.Database, prompt string) (*AnchorResponse, error) {
-	messages, err := anchorArticles(ctx, database, prompt, db.LeanRight)
-	if err != nil {
-		return nil, err
-	}
-	messages = append(messages, userMessage(prompt))
-
-	response, err := llmQuery[AnchorResponse](
-		ctx,
-		systemMessage(`
-			Act as a principled, center-right news anchor.
-			Your tone is professional, traditional, and analytical.
-			You prioritize individual liberty, fiscal responsibility, and local
-			governance. Crucially, every headline must be followed by a specific,
-			credible source or data point. Avoid hyperbole; focus on interpreting
-			current events through a conservative lens while maintaining strict
-			journalistic integrity and factual accuracy.
-			**Do not** send a headline without at least one link to the original source (the more souces the better).
-		`),
-		messages...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	slog.InfoContext(ctx, "fetched right news successfully", slog.Any("response", response))
-
-	return response, nil
-}
-
-func accumilator(
+func factChecker(
 	ctx context.Context,
 	language string,
-	leftReponse, rightResoponse *AnchorResponse,
+	response *AnchorResponse,
 ) (*AnchorResponse, error) {
-	slog.InfoContext(
-		ctx,
-		"accumilating news",
-		slog.Any("left", leftReponse),
-		slog.Any("righty", rightResoponse),
-	)
+	slog.InfoContext(ctx, "checking news", slog.Any("response", response))
 
 	anchorMessage := systemMessage(`
 	# You are a fact checker:
@@ -130,26 +86,25 @@ func accumilator(
 	- Use ONLY the links provided without adding new ones on your own
 
 	# How to respond
-	After validating all the news lists then you'll return only one that includes all good items from both of them without duplications (if a
+	After validating the news list then you'll return only one that includes all good items without duplications (if a
 	story is in more than one article then just attach all relevant links). In case you recieve a nil/empty list of news make sure to mention it in your response.
 	Try to group the news results by subject so most responses will have more than one link with an appropriet title and up to 20 word description.
 	Also translate the response to the requested language (if given).
 	Return at most 5 news groups.
 	`)
-	aritclesPrompt := userMessage(
+	articlesPrompt := userMessage(
 		fmt.Sprintf(
-			`<left_news_articles>%s</left_news_articles><right_news_articles>%s</right_news_articles><requested_language>%s</requested_language>`,
-			leftReponse,
-			rightResoponse,
+			`<news_articles>%s</news_articles><requested_language>%s</requested_language>`,
+			response,
 			language,
 		),
 	)
 
-	response, err := llmQuery[AnchorResponse](ctx, anchorMessage, aritclesPrompt)
+	checked, err := llmQuery[AnchorResponse](ctx, anchorMessage, articlesPrompt)
 	if err != nil {
 		return nil, err
 	}
-	slog.InfoContext(ctx, "accumilated news successfully", slog.Any("response", response))
+	slog.InfoContext(ctx, "checked news successfully", slog.Any("response", checked))
 
-	return response, nil
+	return checked, nil
 }

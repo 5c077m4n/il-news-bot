@@ -7,12 +7,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/5c077m4n/il-news-bot/db"
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-func getChannelFeed(source string, lean db.Lean, channelHandle string) func(*db.Database, context.Context) ([]db.Article, error) {
+func getChannelFeed(
+	source string,
+	channelHandle string,
+) func(*db.Database, context.Context) ([]db.Article, error) {
 	return func(database *db.Database, ctx context.Context) ([]db.Article, error) {
 		appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 		if err != nil {
@@ -49,13 +53,13 @@ func getChannelFeed(source string, lean db.Lean, channelHandle string) func(*db.
 			}
 			articles = append(articles, db.Article{
 				Source:      source,
-				Lean:        lean,
 				Description: text,
 				Link: fmt.Sprintf(
 					"https://t.me/%s/%d",
 					strings.TrimPrefix(channelHandle, "@"),
 					msg.ID,
 				),
+				PublishedAt: time.Now(),
 			})
 		}
 
