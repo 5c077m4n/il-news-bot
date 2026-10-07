@@ -60,7 +60,7 @@ tasks:
     vars:
       EC2_ID:
         sh: aws ec2 describe-instances --region {{.AWS_REGION}} --filters "Name=tag:aws:autoscaling:groupName,Values=il-news-bot-ec2-*" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output text
-    cmd: aws ssm start-session --region {{.AWS_REGION}} --target {{.EC2_ID}} --document-name AWS-StartInteractiveCommand --parameters '{"startCommand":["journalctl -xefu il-news-bot.service"]}'
+    cmd: aws ssm start-session --region {{.AWS_REGION}} --target {{.EC2_ID}} --document-name AWS-StartInteractiveCommand --parameters '{"command":["journalctl -xefu il-news-bot.service"]}'
 
   deploy:
     env:
