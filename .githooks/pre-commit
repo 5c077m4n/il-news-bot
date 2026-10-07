@@ -4,7 +4,8 @@ set -ueo pipefail
 
 go fix ./... || exit 1
 go vet ./... || exit 1
+gofmt -e . >/dev/null || exit 1
 CGO_ENABLED=0 go build -o /dev/null . || exit 1
-golangci-lint run ./... || exit
+golangci-lint run ./... || exit 1
 
 gitleaks git --verbose --config=./.gitleaks.toml
