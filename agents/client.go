@@ -11,6 +11,4 @@ const deepseekModel = "deepseek/deepseek-v4.1-flash"
 const jevModel = "typesafe/jev-1.13"
 
 var ErrLLMReponseParse = errors.New("could not prase the LLM's resposne")
-var client = openrouter.New(
-	openrouter.WithSecurity(os.Getenv("OPENROUTER_API_KEY")),
-)
+var client = openrouter.New(openrouter.WithSecurity(os.Getenv("OPENROUTER_API_KEY")))

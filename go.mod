@@ -1,6 +1,6 @@
 module github.com/5c077m4n/il-news-bot
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/OpenRouterTeam/go-sdk v0.8.31
