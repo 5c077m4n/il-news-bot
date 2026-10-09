@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/5c077m4n/il-news-bot/agents/feeds"
 	"github.com/5c077m4n/il-news-bot/db"
+	"github.com/5c077m4n/il-news-bot/feeds"
 	"github.com/5c077m4n/il-news-bot/telegram"
 	_ "github.com/joho/godotenv/autoload"
 )

@@ -12,7 +12,7 @@ import (
 const (
 	pollInterval    = 15 * time.Minute
 	cleanupInterval = time.Hour
-	retention       = 48 * time.Hour
+	retention       = 24 * time.Hour
 )
 
 var allSources = map[string]func(*db.Database, context.Context) ([]db.Article, error){
