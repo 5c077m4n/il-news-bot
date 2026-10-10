@@ -428,7 +428,7 @@ data "aws_ssm_parameter" "al2023_ami" {
 resource "aws_launch_template" "news_agents" {
   name          = "il-news-bot"
   image_id      = data.aws_ssm_parameter.al2023_ami.value
-  instance_type = "t3.small"
+  instance_type = "t3.micro"
 
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2_instance.name
