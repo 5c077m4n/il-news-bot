@@ -61,6 +61,7 @@ func anchor(ctx context.Context, database *db.Database, prompt string) (*AnchorR
 			drive the narrative while maintaining strict journalistic
 			integrity and factual accuracy.
 			**Do not** send a headline without at least one link to the original source (the more sources the better).
+			Name every link with up to 2 words that describe its content.
 		`),
 		messages...,
 	)
@@ -84,6 +85,7 @@ func factChecker(
 	- Make sure that any and all information passed through you is true
 	- Make sure that all links are valid and return a non-error status code (2**) when opening, that stories are mentioned more than once (a good indication but not definitive)
 	- Use ONLY the links provided without adding new ones on your own
+	- Name every link with up to 2 words that describe its content
 
 	# How to respond
 	After validating the news list then you'll return only one that includes all good items without duplications (if a
