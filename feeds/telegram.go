@@ -2,6 +2,7 @@ package feeds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,6 +15,10 @@ import (
 
 func getChannelFeed(channelHandle string) func(context.Context) ([]db.Article, error) {
 	return func(ctx context.Context) ([]db.Article, error) {
+		if true {
+			return nil, errors.New("unimplemented")
+		}
+
 		appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 		if err != nil {
 			return nil, err
