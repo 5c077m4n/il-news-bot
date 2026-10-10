@@ -3,7 +3,6 @@ package feeds
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -13,11 +12,8 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-func getChannelFeed(
-	source string,
-	channelHandle string,
-) func(*db.Database, context.Context) ([]db.Article, error) {
-	return func(database *db.Database, ctx context.Context) ([]db.Article, error) {
+func getChannelFeed(channelHandle string) func(context.Context) ([]db.Article, error) {
+	return func(ctx context.Context) ([]db.Article, error) {
 		appID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))
 		if err != nil {
 			return nil, err
@@ -52,7 +48,7 @@ func getChannelFeed(
 				continue
 			}
 			articles = append(articles, db.Article{
-				Source:      source,
+				Source:      channelHandle,
 				Description: text,
 				Link: fmt.Sprintf(
 					"https://t.me/%s/%d",
@@ -61,15 +57,6 @@ func getChannelFeed(
 				),
 				PublishedAt: time.Now(),
 			})
-		}
-
-		if err := database.SaveArticles(ctx, articles); err != nil {
-			slog.WarnContext(
-				ctx,
-				"could not save articles",
-				slog.String("source", source),
-				slog.Any("error", err),
-			)
 		}
 
 		return articles, nil

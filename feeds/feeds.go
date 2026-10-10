@@ -15,15 +15,15 @@ const (
 	retention       = 24 * time.Hour
 )
 
-var allSources = map[string]func(*db.Database, context.Context) ([]db.Article, error){
-	"Israel Hayom":     getRSSFeed("Israel Hayom", "https://www.israelhayom.co.il/rss.xml"),
-	"YNet":             getRSSFeed("YNet", "https://www.ynet.co.il/Integration/StoryRss2.xml"),
-	"JPost":            getRSSFeed("JPost", "https://www.jpost.com/rss/rssfeedsfrontpage.aspx"),
-	"Cyber News":       getChannelFeed("Cyber News", "@CyberSecurityIL"),
-	"Abu Ali Express":  getChannelFeed("Abu Ali Express", "@abualiexpress"),
-	"Hacker News Feed": getChannelFeed("Hacker News Feed", "@hacker_news_feed"),
-	"Amit Segal":       getChannelFeed("Amit Segal", "@hacker_news_feed"),
-	"Lobsters":         getChannelFeed("Lobsters", "@lobste_rs"),
+var allSources = map[string]func(context.Context) ([]db.Article, error){
+	"Israel Hayom":     getRSSFeed("https://www.israelhayom.co.il/rss.xml"),
+	"YNet":             getRSSFeed("https://www.ynet.co.il/Integration/StoryRss2.xml"),
+	"JPost":            getRSSFeed("https://www.jpost.com/rss/rssfeedsfrontpage.aspx"),
+	"Cyber News":       getChannelFeed("@CyberSecurityIL"),
+	"Abu Ali Express":  getChannelFeed("@abualiexpress"),
+	"Hacker News Feed": getChannelFeed("@hacker_news_feed"),
+	"Amit Segal":       getChannelFeed("@hacker_news_feed"),
+	"Lobsters":         getChannelFeed("@lobste_rs"),
 }
 
 func refresh(ctx context.Context, database *db.Database) {
@@ -33,10 +33,21 @@ func refresh(ctx context.Context, database *db.Database) {
 	}()
 
 	for name, getter := range allSources {
-		if _, err := getter(database, ctx); err != nil {
+		articles, err := getter(ctx)
+		if err != nil {
 			slog.WarnContext(
 				ctx,
 				"could not refresh data source",
+				slog.String("source", name),
+				slog.Any("error", err),
+			)
+			continue
+		}
+
+		if err := database.SaveArticles(ctx, articles); err != nil {
+			slog.WarnContext(
+				ctx,
+				"could not save articles",
 				slog.String("source", name),
 				slog.Any("error", err),
 			)
