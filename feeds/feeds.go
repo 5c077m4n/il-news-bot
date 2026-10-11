@@ -18,13 +18,18 @@ const (
 var allSources = map[string]func(context.Context) ([]db.Article, error){
 	"Israel Hayom":           getRSSFeed("https://www.israelhayom.co.il/rss.xml"),
 	"YNet":                   getRSSFeed("https://www.ynet.co.il/Integration/StoryRss2.xml"),
-	"JPost":                  getRSSFeed("https://www.jpost.com/rss/rssfeedsfrontpage.aspx"),
 	"Cyber Security News IL": getRSSFeed("https://rss.app/feeds/Ho4gIVhEXQwiIoOx.xml"),
-	"Cyber Security News":    getChannelFeed("@CyberSecurityIL"),
-	"Abu Ali Express":        getChannelFeed("@abualiexpress"),
-	"Hacker News Feed":       getChannelFeed("@hacker_news_feed"),
-	"Amit Segal":             getChannelFeed("@hacker_news_feed"),
-	"Lobsters":               getChannelFeed("@lobste_rs"),
+	"Reuters via Google": getRSSFeed(
+		"https://news.google.com/rss/search?q=when:24h+site:reuters.com&ceid=US:en&hl=en-US&gl=US",
+	),
+	"BeepingComputer":     getRSSFeed("https://www.bleepingcomputer.com/feed/"),
+	"Hacker News":         getRSSFeed("https://news.ycombinator.com/rss"),
+	"TechCrunch":          getRSSFeed("https://techcrunch.com/feed/"),
+	"Cyber Security News": getChannelFeed("@CyberSecurityIL"),
+	"Abu Ali Express":     getChannelFeed("@abualiexpress"),
+	"Hacker News Feed":    getChannelFeed("@hacker_news_feed"),
+	"Amit Segal":          getChannelFeed("@hacker_news_feed"),
+	"Lobsters":            getChannelFeed("@lobste_rs"),
 }
 
 func refresh(ctx context.Context, database *db.Database) {
