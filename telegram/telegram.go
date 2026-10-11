@@ -62,6 +62,16 @@ func handleMessage(database *db.Database, message *telegram.NewMessage) error {
 			message,
 			fmt.Sprintf("Please get me the lastest news about %s", args),
 		)
+	case "/israel":
+		return handleNewsRequest(database, message, "Please get me the lastest news about Israel")
+	case "/tech":
+		return handleNewsRequest(database, message, "Please get me the lastest news about tech")
+	case "/cyber":
+		return handleNewsRequest(
+			database,
+			message,
+			"Please get me the lastest news about cyber security",
+		)
 	}
 	return nil
 }
@@ -81,6 +91,9 @@ func Run(database *db.Database) error {
 		[]*telegram.BotCommand{
 			{Command: "start", Description: "Get the latest news"},
 			{Command: "subject", Description: "Get the latest news about a subject"},
+			{Command: "israel", Description: "Get the latest news about Israel"},
+			{Command: "tech", Description: "Get the latest news about tech"},
+			{Command: "cyber", Description: "Get the latest news about cyber security"},
 		},
 	); err != nil {
 		slog.Warn("could not register bot commands", "error", err)
