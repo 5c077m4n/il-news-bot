@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"runtime"
 	"time"
@@ -15,6 +16,23 @@ const embeddingModel = "openai/text-embedding-3-small"
 
 type Database struct {
 	articles *chromem.Collection
+}
+
+func New(directory string, embeddingFunc chromem.EmbeddingFunc) (*Database, error) {
+	instance, err := chromem.NewPersistentDB(directory, false)
+	if err != nil {
+		return nil, err
+	}
+
+	if embeddingFunc == nil {
+		embeddingFunc = defaultEmbeddingFunc()
+	}
+	articles, err := instance.GetOrCreateCollection("articles", nil, embeddingFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Database{articles: articles}, nil
 }
 
 func defaultEmbeddingFunc() chromem.EmbeddingFunc {
@@ -103,19 +121,34 @@ func (d *Database) DeleteOldArticles(ctx context.Context, maxAge time.Duration) 
 	return len(ids), nil
 }
 
-func New(directory string, embeddingFunc chromem.EmbeddingFunc) (*Database, error) {
-	instance, err := chromem.NewPersistentDB(directory, false)
-	if err != nil {
-		return nil, err
-	}
+func (d *Database) PollCleanup(ctx context.Context) {
+	start := time.Now()
+	defer func() {
+		slog.Info("DB cleanup done", "elapsed", time.Since(start))
+	}()
 
-	if embeddingFunc == nil {
-		embeddingFunc = defaultEmbeddingFunc()
-	}
-	articles, err := instance.GetOrCreateCollection("articles", nil, embeddingFunc)
-	if err != nil {
-		return nil, err
-	}
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
 
-	return &Database{articles: articles}, nil
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			removed, err := d.DeleteOldArticles(ctx, 24*time.Hour)
+			if err != nil {
+				slog.WarnContext(
+					ctx,
+					"could not remove old articles",
+					slog.Any("error", err),
+				)
+				continue
+			}
+			slog.InfoContext(
+				ctx,
+				"removed old articles",
+				slog.Int("removed", removed),
+			)
+		}
+	}
 }

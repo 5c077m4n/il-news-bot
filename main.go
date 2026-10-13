@@ -16,7 +16,7 @@ func main() {
 	}
 
 	go feeds.Poll(context.Background(), database)
-	go feeds.Cleanup(context.Background(), database)
+	go database.PollCleanup(context.Background())
 
 	if err := telegram.Run(database); err != nil {
 		panic(err)

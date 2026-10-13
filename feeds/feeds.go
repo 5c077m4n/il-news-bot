@@ -61,38 +61,6 @@ func refresh(ctx context.Context, database *db.Database) {
 	}
 }
 
-func Cleanup(ctx context.Context, database *db.Database) {
-	start := time.Now()
-	defer func() {
-		slog.Info("DB cleanup done", "elapsed", time.Since(start))
-	}()
-
-	ticker := time.NewTicker(cleanupInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			removed, err := database.DeleteOldArticles(ctx, retention)
-			if err != nil {
-				slog.WarnContext(
-					ctx,
-					"could not remove old articles",
-					slog.Any("error", err),
-				)
-				continue
-			}
-			slog.InfoContext(
-				ctx,
-				"removed old articles",
-				slog.Int("removed", removed),
-			)
-		}
-	}
-}
-
 func Poll(ctx context.Context, database *db.Database) {
 	refresh(ctx, database)
 
